@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create First Admin User - AI Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .environment-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .env-button {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .env-button:hover {
+            border-color: #667eea;
+        }
+        
+        .env-button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            display: block;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Create First Admin</h1>
+        <p class="subtitle">Set up your first admin user for AI Studio</p>
+        
+        <div class="info-box">
+            <strong>⚠️ Important:</strong> This endpoint only works when NO admin users exist in the system. Once an admin is created, this page will be disabled for security.
+        </div>
+        
+        <div class="environment-selector">
+            <button class="env-button" onclick="selectEnvironment('dev')" id="dev-btn">
+                💻 Development
+            </button>
+            <button class="env-button active" onclick="selectEnvironment('prod')" id="prod-btn">
+                🌐 Production
+            </button>
+        </div>
+        
+        <form id="adminForm" onsubmit="createAdmin(event)">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    placeholder="dineshsunshine@gmail.com"
+                    value="dineshsunshine@gmail.com"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="fullName">Full Name</label>
+                <input 
+                    type="text" 
+                    id="fullName" 
+                    name="fullName" 
+                    required 
+                    placeholder="Dinesh"
+                    value="Dinesh"
+                >
+            </div>
+            
+            <button type="submit" id="submitBtn">
+                Create Admin User
+            </button>
+        </form>
+        
+        <div id="result" class="result"></div>
+    </div>
+    
+    <script>
+        const environments = {
+            dev: 'https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/api/v1',
+            prod: 'https://ai-studio-backend-ijkp.onrender.com/api/v1'
+        };
+        
+        let currentEnv = 'prod';
+        
+        function selectEnvironment(env) {
+            currentEnv = env;
+            document.getElementById('dev-btn').classList.remove('active');
+            document.getElementById('prod-btn').classList.remove('active');
+            document.getElementById(env + '-btn').classList.add('active');
+        }
+        
+        async function createAdmin(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('result');
+            const email = document.getElementById('email').value;
+            const fullName = document.getElementById('fullName').value;
+            
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const apiUrl = `${environments[currentEnv]}/bootstrap/create-first-admin?email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(fullName)}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Success!</strong>
+                        <p>${data.message}</p>
+                        <p><strong>Email:</strong> ${data.user.email}</p>
+                        <p><strong>Role:</strong> ${data.user.role}</p>
+                        <p><strong>Status:</strong> ${data.user.status}</p>
+                        <p style="margin-top: 10px;">
+                            <strong>Next steps:</strong><br>
+                            1. Go to your frontend application<br>
+                            2. Click "Login with Google"<br>
+                            3. Use ${data.user.email} to sign in<br>
+                            4. You now have full admin access! 🎉
+                        </p>
+                    `;
+                } else {
+                    if (response.status === 403) {
+                        resultDiv.className = 'result info';
+                        resultDiv.innerHTML = `
+                            <strong>ℹ️ Admin Already Exists</strong>
+                            <p>${data.detail}</p>
+                            <p style="margin-top: 10px;">
+                                The first admin has already been created. To manage users, please:
+                            </p>
+                            <ol style="margin-left: 20px; margin-top: 5px;">
+                                <li>Login as an existing admin</li>
+                                <li>Go to the Admin Panel</li>
+                                <li>Manage users from there</li>
+                            </ol>
+                        `;
+                    } else {
+                        resultDiv.className = 'result error';
+                        resultDiv.innerHTML = `
+                            <strong>❌ Error</strong>
+                            <p>${data.detail || 'Failed to create admin user'}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        `;
+                    }
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <strong>❌ Network Error</strong>
+                    <p>Failed to connect to the server. Please check:</p>
+                    <ul style="margin-left: 20px; margin-top: 5px;">
+                        <li>Is the backend server running?</li>
+                        <li>Is the URL correct for your environment?</li>
+                        <li>Check browser console for details</li>
+                    </ul>
+                    <pre>${error.message}</pre>
+                `;
+                console.error('Error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Admin User';
+            }
+        }
+    </script>
+</body>
+</html>
+
