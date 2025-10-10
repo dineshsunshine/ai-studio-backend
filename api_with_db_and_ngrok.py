@@ -227,6 +227,26 @@ async def root():
     }
 
 
+@app.get("/debug/openapi-test")
+async def test_openapi_generation():
+    """Debug endpoint to test OpenAPI schema generation"""
+    try:
+        schema = app.openapi()
+        return {
+            "status": "success",
+            "endpoints_count": len(schema.get("paths", {})),
+            "schemas_count": len(schema.get("components", {}).get("schemas", {}))
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
+
+
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
     """Health check with database status"""
