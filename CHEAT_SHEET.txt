@@ -1,0 +1,118 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                  AI STUDIO BACKEND - CHEAT SHEET                         ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+🔗 YOUR PUBLIC API URL:
+   https://zestfully-chalky-nikia.ngrok-free.dev
+
+📍 LOCAL URL:
+   http://localhost:8000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 QUICK LINKS:
+
+   Interactive API Docs:  /docs
+   Health Check:          /health
+   All Tasks:             /tasks
+   Statistics:            /stats
+   Ngrok Dashboard:       http://localhost:4040
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 QUICK TESTS (Terminal):
+
+   # Health check
+   curl https://zestfully-chalky-nikia.ngrok-free.dev/health
+
+   # Get all tasks
+   curl https://zestfully-chalky-nikia.ngrok-free.dev/tasks
+
+   # Create task
+   curl -X POST https://zestfully-chalky-nikia.ngrok-free.dev/tasks \
+     -H "Content-Type: application/json" \
+     -d '{"title":"Test","description":"Testing","completed":false}'
+
+   # Run full test suite
+   cd /Users/dgolani/Documents/AI_Studio/backend
+   ./test_database_crud.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💻 FOR GOOGLE AI STUDIO (JavaScript):
+
+   const API = 'https://zestfully-chalky-nikia.ngrok-free.dev';
+
+   // Get tasks
+   fetch(`${API}/tasks`).then(r => r.json()).then(console.log);
+
+   // Create task
+   fetch(`${API}/tasks`, {
+     method: 'POST',
+     headers: {'Content-Type': 'application/json'},
+     body: JSON.stringify({title:'Task', completed:false})
+   }).then(r => r.json()).then(console.log);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 API ENDPOINTS:
+
+   GET    /              Welcome message
+   GET    /health        Health + DB status
+   GET    /tasks         List all tasks
+   GET    /tasks?completed=true   Filter tasks
+   GET    /tasks/{id}    Get specific task
+   POST   /tasks         Create task
+   PUT    /tasks/{id}    Update task
+   DELETE /tasks/{id}    Delete task
+   GET    /stats         Statistics
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️ SERVER MANAGEMENT:
+
+   # Check status
+   ps aux | grep api_with_db_and_ngrok | grep -v grep
+
+   # Stop server
+   pkill -f api_with_db_and_ngrok
+
+   # Start server
+   cd /Users/dgolani/Documents/AI_Studio/backend
+   source venv/bin/activate
+   python api_with_db_and_ngrok.py &
+
+   # Restart ngrok
+   pkill ngrok && ngrok http 8000 &
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💾 DATABASE:
+
+   File: /Users/dgolani/Documents/AI_Studio/backend/ai_studio.db
+
+   # View tasks
+   sqlite3 ai_studio.db "SELECT * FROM tasks;"
+
+   # Count
+   sqlite3 ai_studio.db "SELECT COUNT(*) FROM tasks;"
+
+   # Backup
+   cp ai_studio.db ai_studio_backup.db
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 DOCUMENTATION:
+
+   QUICK_START.md       - This quick guide
+   PUBLIC_URL_INFO.md   - Public URL details
+   SETUP_COMPLETE.md    - Full setup docs
+   TESTING_GUIDE.md     - Testing instructions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ STATUS: Everything is running and tested!
+   Server: ✅  Database: ✅  Public URL: ✅
+
+🚀 Start building your AI Studio frontend now!
+

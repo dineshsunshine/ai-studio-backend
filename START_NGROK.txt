@@ -1,0 +1,109 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║              📋 HOW TO START NGROK FROM YOUR TERMINAL                ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+🚀 QUICK START:
+
+Open a new terminal and run:
+
+    ngrok http 8888
+
+That's it! Keep the terminal open.
+
+══════════════════════════════════════════════════════════════════════
+
+📖 DETAILED STEPS:
+
+1. Open a NEW terminal window (⌘T or ⌘N)
+
+2. Type this command:
+   
+   ngrok http 8888
+
+3. Press Enter
+
+4. You'll see the ngrok dashboard with your public URL
+
+5. Look for the "Forwarding" line - that's your public URL!
+   Example: https://zestfully-chalky-nikia.ngrok-free.dev
+
+══════════════════════════════════════════════════════════════════════
+
+✅ IF NGROK IS ALREADY RUNNING:
+
+If you see an error like "endpoint already online":
+
+1. Find the terminal where ngrok is running
+2. Press Ctrl+C to stop it
+3. Then run again: ngrok http 8888
+
+══════════════════════════════════════════════════════════════════════
+
+🎯 YOUR PUBLIC URLS:
+
+After starting ngrok, access your projects at:
+
+AI Studio Frontend:
+   https://YOUR-NGROK-URL.ngrok-free.dev/AIStudio/
+
+AI Studio API:
+   https://YOUR-NGROK-URL.ngrok-free.dev/AIStudio/health
+   https://YOUR-NGROK-URL.ngrok-free.dev/AIStudio/docs
+
+SampleAppGpt (when running on port 8080):
+   https://YOUR-NGROK-URL.ngrok-free.dev/SampleAppGpt/
+
+Help Page:
+   https://YOUR-NGROK-URL.ngrok-free.dev/
+
+══════════════════════════════════════════════════════════════════════
+
+💡 REMEMBER:
+
+• Keep the ngrok terminal open (don't close it!)
+• If you close it, the public URLs stop working
+• To stop ngrok: press Ctrl+C in that terminal
+• Port 8888 must be free (reverse proxy uses it)
+
+══════════════════════════════════════════════════════════════════════
+
+🔧 TROUBLESHOOTING:
+
+Problem: "ngrok: command not found"
+Solution: Install ngrok:
+   brew install ngrok
+
+Problem: "endpoint already online"
+Solution: Stop existing ngrok first (Ctrl+C), then start again
+
+Problem: ngrok connects but URLs return 404
+Solution: Make sure the reverse proxy is running on port 8888:
+   cd /Users/dgolani/Documents/AI_Studio/backend
+   python3 reverse_proxy.py
+
+══════════════════════════════════════════════════════════════════════
+
+📋 FULL STARTUP SEQUENCE:
+
+Terminal 1 - AI Studio Backend:
+   cd /Users/dgolani/Documents/AI_Studio/backend
+   source venv/bin/activate
+   python3 api_with_db_and_ngrok.py
+
+Terminal 2 - Reverse Proxy:
+   cd /Users/dgolani/Documents/AI_Studio/backend
+   python3 reverse_proxy.py
+
+Terminal 3 - Ngrok:
+   ngrok http 8888
+
+Terminal 4 - SampleAppGpt (optional):
+   cd /path/to/SampleAppGpt
+   npm start    # Make sure it runs on port 8080
+
+══════════════════════════════════════════════════════════════════════
+
+✨ THAT'S IT! Your projects are now publicly accessible!
+

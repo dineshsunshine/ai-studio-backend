@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables (NEVER commit these!)
+.env
+.env.local
+.env.*.local
+
+# Database (local development only)
+*.db
+*.db-journal
+ai_studio.db
+ai_studio.db-journal
+
+# Logs
+*.log
+nohup.out
+*.out
+
+# Local assets (will use cloud storage in production)
+assets/models/*
+assets/looks/*
+!assets/models/.gitkeep
+!assets/looks/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Backup files
+*.bak
+*~
+
+# Temporary files
+tmp/
+temp/

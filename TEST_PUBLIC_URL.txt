@@ -1,0 +1,106 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║        🌐 TEST FRONTEND ON PUBLIC URL - 4 EASY STEPS            ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+CURRENT STATUS:
+✅ Backend running (port 8000)
+✅ Proxy running (port 8888)
+✅ Frontend fixed and ready
+
+══════════════════════════════════════════════════════════════════
+
+STEP 1: Start Ngrok
+────────────────────
+
+Open terminal and run:
+
+    ngrok http 8888
+
+
+STEP 2: Get Your Public URL
+────────────────────────────
+
+Look for this line in ngrok output:
+
+    Forwarding    https://abc123.ngrok-free.app -> localhost:8888
+
+Copy that URL! Example: https://abc123.ngrok-free.app
+
+
+STEP 3: Update Frontend URL
+────────────────────────────
+
+Your frontend should be open in browser at:
+    /Users/dgolani/Documents/AI_Studio/backend/frontend/index.html
+
+In the frontend:
+    1. Click "Change URL" button (top right, orange button)
+    2. Paste: https://YOUR-URL.ngrok-free.app/backend
+    3. Click OK
+
+Note: Add /backend at the end!
+
+
+STEP 4: Test CRUD Operations
+─────────────────────────────
+
+Now try these in the frontend:
+
+    ✅ Click "❤️ Health Check" - should show green
+    ✅ Click "🔄 Refresh Tasks" - loads from public URL
+    ✅ Create a new task - tests POST
+    ✅ Mark task complete - tests PUT
+    ✅ Delete a task - tests DELETE
+
+You're now using the PUBLIC URL! 🎉
+
+══════════════════════════════════════════════════════════════════
+
+ALTERNATIVE: Test Backend Directly
+───────────────────────────────────
+
+Open in browser (replace YOUR-URL):
+
+    https://YOUR-URL.ngrok-free.app/backend/docs
+    https://YOUR-URL.ngrok-free.app/backend/health
+    https://YOUR-URL.ngrok-free.app/backend/tasks
+
+Or use curl:
+
+    curl https://YOUR-URL.ngrok-free.app/backend/health
+
+══════════════════════════════════════════════════════════════════
+
+WHAT IF IT DOESN'T WORK?
+─────────────────────────
+
+1. Check ngrok is running:
+   • Should show "Session Status: online"
+   
+2. Verify backend is accessible:
+   curl http://localhost:8888/backend/health
+   
+3. Check URL has /backend at end:
+   ✅ https://abc123.ngrok-free.app/backend
+   ❌ https://abc123.ngrok-free.app
+
+4. First visit might show ngrok splash:
+   • Click "Visit Site" button
+   • Only happens once
+
+══════════════════════════════════════════════════════════════════
+
+SUMMARY:
+────────
+
+1. Run: ngrok http 8888
+2. Copy: https://abc123.ngrok-free.app
+3. Update frontend: https://abc123.ngrok-free.app/backend
+4. Test: Create/Update/Delete tasks
+
+That's it! Your frontend is now on public URL! 🚀
+
+══════════════════════════════════════════════════════════════════
+

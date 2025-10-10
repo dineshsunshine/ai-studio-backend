@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Studio - CRUD Test Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header .status {
+            display: inline-block;
+            padding: 8px 20px;
+            background: #4caf50;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .status.disconnected {
+            background: #f44336;
+        }
+        
+        .api-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        
+        .api-info strong {
+            color: #667eea;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #da190b;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e68900;
+        }
+        
+        .tasks-grid {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .task-card {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+        
+        .task-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .task-card.completed {
+            border-left-color: #4caf50;
+            opacity: 0.8;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .task-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .task-id {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+        }
+        
+        .task-description {
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        .task-meta {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .response-box {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .response-box pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-filter {
+            padding: 8px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-filter.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-filter:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 AI Studio Backend - CRUD Test</h1>
+            <div class="status" id="connectionStatus">⚡ Connected</div>
+        </div>
+        
+        <div class="api-info">
+            <strong>API URL:</strong> <span id="apiUrl">https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio</span>
+            <button class="btn btn-warning" onclick="changeApiUrl()" style="float: right; padding: 5px 15px;">Change URL</button>
+            <br><small style="color: #666; margin-top: 5px; display: block;">✅ Connected to public ngrok URL!</small>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="section">
+            <h2>📊 Statistics</h2>
+            <div class="stats" id="statsContainer">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTasks">-</div>
+                    <div class="stat-label">Total Tasks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completedTasks">-</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="pendingTasks">-</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completionRate">-</div>
+                    <div class="stat-label">Completion Rate</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Create Task -->
+        <div class="section">
+            <h2>➕ Create New Task</h2>
+            <div class="form-group">
+                <label for="newTitle">Title *</label>
+                <input type="text" id="newTitle" placeholder="Enter task title" required>
+            </div>
+            <div class="form-group">
+                <label for="newDescription">Description</label>
+                <textarea id="newDescription" placeholder="Enter task description (optional)"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="newCompleted">
+                    Mark as completed
+                </label>
+            </div>
+            <button class="btn btn-primary" onclick="createTask()">Create Task</button>
+        </div>
+        
+        <!-- Task List -->
+        <div class="section">
+            <h2>📝 Tasks</h2>
+            <div class="filter-buttons">
+                <button class="btn-filter active" onclick="filterTasks('all')">All Tasks</button>
+                <button class="btn-filter" onclick="filterTasks('pending')">Pending</button>
+                <button class="btn-filter" onclick="filterTasks('completed')">Completed</button>
+            </div>
+            <button class="btn btn-success" onclick="loadTasks()">🔄 Refresh Tasks</button>
+            <button class="btn btn-warning" onclick="testHealthCheck()">❤️ Health Check</button>
+            
+            <div class="tasks-grid" id="tasksContainer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    <p>No tasks yet. Create your first task above!</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Response Box -->
+        <div class="section">
+            <h2>📡 API Response</h2>
+            <div class="response-box" id="responseBox">
+                <pre>Waiting for API call...</pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Configuration - Using relative path since frontend is also under /AIStudio
+        let API_BASE_URL = '/AIStudio';
+        let currentFilter = 'all';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTasks();
+            loadStats();
+            testConnection();
+        });
+        
+        // Update API URL display
+        function changeApiUrl() {
+            const newUrl = prompt('Enter new API URL:', API_BASE_URL);
+            if (newUrl) {
+                API_BASE_URL = newUrl.replace(/\/$/, ''); // Remove trailing slash
+                document.getElementById('apiUrl').textContent = API_BASE_URL;
+                testConnection();
+                loadTasks();
+                loadStats();
+            }
+        }
+        
+        // Test connection
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                document.getElementById('connectionStatus').textContent = '✅ Connected';
+                document.getElementById('connectionStatus').className = 'status';
+                showResponse(data, 'Health Check');
+            } catch (error) {
+                document.getElementById('connectionStatus').textContent = '❌ Disconnected';
+                document.getElementById('connectionStatus').className = 'status disconnected';
+                showResponse({error: error.message}, 'Connection Error');
+            }
+        }
+        
+        // Test health check
+        async function testHealthCheck() {
+            await testConnection();
+        }
+        
+        // Show API response
+        function showResponse(data, title = 'API Response') {
+            const responseBox = document.getElementById('responseBox');
+            responseBox.innerHTML = `<strong>${title}:</strong><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/stats`);
+                const data = await response.json();
+                
+                document.getElementById('totalTasks').textContent = data.total_tasks;
+                document.getElementById('completedTasks').textContent = data.completed;
+                document.getElementById('pendingTasks').textContent = data.pending;
+                document.getElementById('completionRate').textContent = data.completion_rate;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load tasks
+        async function loadTasks(filter = currentFilter) {
+            try {
+                let url = `${API_BASE_URL}/tasks`;
+                if (filter === 'completed') url += '?completed=true';
+                if (filter === 'pending') url += '?completed=false';
+                
+                const response = await fetch(url);
+                const tasks = await response.json();
+                
+                showResponse(tasks, `${filter.charAt(0).toUpperCase() + filter.slice(1)} Tasks`);
+                displayTasks(tasks);
+                loadStats();
+            } catch (error) {
+                showResponse({error: error.message}, 'Error Loading Tasks');
+            }
+        }
+        
+        // Display tasks
+        function displayTasks(tasks) {
+            const container = document.getElementById('tasksContainer');
+            
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                        <p>No tasks found. Create one above!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = tasks.map(task => `
+                <div class="task-card ${task.completed ? 'completed' : ''}">
+                    <div class="task-header">
+                        <div class="task-title">${task.completed ? '✅ ' : ''}${task.title}</div>
+                        <div class="task-id">ID: ${task.id}</div>
+                    </div>
+                    <div class="task-description">${task.description || 'No description'}</div>
+                    <div class="task-meta">
+                        Created: ${new Date(task.created_at).toLocaleString()}
+                        ${task.updated_at ? '<br>Updated: ' + new Date(task.updated_at).toLocaleString() : ''}
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn btn-warning" onclick="toggleComplete(${task.id}, ${!task.completed})">
+                            ${task.completed ? '↩️ Mark Pending' : '✅ Mark Complete'}
+                        </button>
+                        <button class="btn btn-primary" onclick="editTask(${task.id})">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteTask(${task.id})">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Filter tasks
+        function filterTasks(filter) {
+            currentFilter = filter;
+            
+            // Update button states
+            document.querySelectorAll('.btn-filter').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadTasks(filter);
+        }
+        
+        // Create task
+        async function createTask() {
+            const title = document.getElementById('newTitle').value;
+            const description = document.getElementById('newDescription').value;
+            const completed = document.getElementById('newCompleted').checked;
+            
+            if (!title) {
+                alert('Please enter a task title');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/tasks`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        description: description || null,
+                        completed: completed
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data, 'Task Created');
+                
+                // Clear form
+                document.getElementById('newTitle').value = '';
+                document.getElementById('newDescription').value = '';
+                document.getElementById('newCompleted').checked = false;
+                
+                // Reload tasks
+                loadTasks();
+            } catch (error) {
+                showResponse({error: error.message}, 'Error Creating Task');
+            }
+        }
+        
+        // Toggle complete
+        async function toggleComplete(taskId, completed) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completed: completed
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data, 'Task Updated');
+                loadTasks();
+            } catch (error) {
+                showResponse({error: error.message}, 'Error Updating Task');
+            }
+        }
+        
+        // Edit task
+        async function editTask(taskId) {
+            try {
+                // Get task details
+                const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`);
+                const task = await response.json();
+                
+                const newTitle = prompt('Edit Title:', task.title);
+                if (newTitle === null) return;
+                
+                const newDescription = prompt('Edit Description:', task.description || '');
+                if (newDescription === null) return;
+                
+                const updateResponse = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: newTitle || task.title,
+                        description: newDescription || task.description,
+                        completed: task.completed
+                    })
+                });
+                
+                const data = await updateResponse.json();
+                showResponse(data, 'Task Updated');
+                loadTasks();
+            } catch (error) {
+                showResponse({error: error.message}, 'Error Updating Task');
+            }
+        }
+        
+        // Delete task
+        async function deleteTask(taskId) {
+            if (!confirm('Are you sure you want to delete this task?')) {
+                return;
+            }
+            
+            try {
+                await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+                
+                showResponse({success: true, message: `Task ${taskId} deleted`}, 'Task Deleted');
+                loadTasks();
+            } catch (error) {
+                showResponse({error: error.message}, 'Error Deleting Task');
+            }
+        }
+    </script>
+</body>
+</html>
+

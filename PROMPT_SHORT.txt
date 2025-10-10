@@ -1,0 +1,91 @@
+# TASK: Fix API Integration - Add Ngrok Bypass Header
+
+## Problem
+API calls are returning HTML (ngrok warning page) instead of JSON, causing frontend errors.
+
+## Solution
+Add header `ngrok-skip-browser-warning: true` to ALL API requests and asset URLs.
+
+## Implementation
+
+### Required Code (Axios - Recommended):
+
+```javascript
+// Create src/api/client.js:
+import axios from 'axios';
+
+const apiClient = axios.create({
+    baseURL: 'YOUR_API_BASE_URL',  // e.g., https://your-domain.ngrok-free.dev/AIStudio
+    headers: {
+        'ngrok-skip-browser-warning': 'true'
+    }
+});
+
+export default apiClient;
+
+// Usage in components:
+import apiClient from './api/client';
+
+// GET
+const models = await apiClient.get('/api/v1/models/');
+
+// POST with file
+const formData = new FormData();
+formData.append('name', 'Model Name');
+formData.append('image', fileObject);
+const result = await apiClient.post('/api/v1/models/', formData);
+
+// DELETE
+await apiClient.delete(`/api/v1/models/${id}/`);
+```
+
+### Or if using Fetch:
+
+```javascript
+// Add to all requests:
+fetch('YOUR_API_BASE_URL/api/v1/models/', {
+    headers: {
+        'ngrok-skip-browser-warning': 'true'
+    }
+})
+.then(r => r.json())
+.then(data => console.log(data));
+```
+
+## For Images/Assets
+
+If loading images or other assets programmatically, add the same header:
+
+```javascript
+// Fetch image with header and convert to blob URL
+fetch(imageUrl, {
+    headers: { 'ngrok-skip-browser-warning': 'true' }
+})
+.then(response => response.blob())
+.then(blob => {
+    const objectUrl = URL.createObjectURL(blob);
+    // Use objectUrl in <img> tag
+});
+```
+
+## Test
+Open browser console and run:
+```javascript
+fetch('YOUR_API_BASE_URL/api/v1/models/', {
+    headers: { 'ngrok-skip-browser-warning': 'true' }
+})
+.then(r => r.json())
+.then(d => console.log('✅ SUCCESS:', d));
+```
+
+You should see JSON data, not HTML.
+
+## Key Points
+- ✅ Add header to ALL API requests
+- ✅ Add header to ALL asset/image requests
+- ✅ Set it once globally in your HTTP client (recommended)
+- ✅ Test in browser console first
+- ✅ For file uploads, let browser set Content-Type automatically
+
+## Expected Result
+After implementing this, all API calls and asset loads should work without seeing any ngrok warning page.

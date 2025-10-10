@@ -1,0 +1,121 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║        HOW TO START NGROK FROM YOUR OWN TERMINAL                ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📍 OPEN YOUR TERMINAL (not this one!)
+
+You can run ngrok from ANYWHERE you want:
+  - Your app directory: ~/SampleAppGpt
+  - Your home directory: ~
+  - Any project folder
+  - It doesn't matter!
+
+══════════════════════════════════════════════════════════════════
+
+🚀 COMMANDS TO RUN (in YOUR terminal):
+
+1. Go to your preferred directory (optional):
+   cd ~/SampleAppGpt
+   # or wherever you want
+
+2. Stop any existing ngrok:
+   pkill ngrok
+
+3. Start ONE ngrok for ALL projects:
+   ngrok http 8888
+
+══════════════════════════════════════════════════════════════════
+
+📊 WHAT YOU'LL SEE:
+
+ngrok by @inconshreveable
+
+Session Status    online
+Account           [Your Account]
+Version           [Version]
+Region            United States (us)
+Web Interface     http://127.0.0.1:4040
+Forwarding        https://abc123.ngrok-free.app -> http://localhost:8888
+
+══════════════════════════════════════════════════════════════════
+
+🌐 YOUR SERVICES WILL BE AVAILABLE AT:
+
+Copy the "Forwarding" URL (e.g., https://abc123.ngrok-free.app)
+
+Then access your projects:
+
+✅ AI Studio Backend:
+   https://abc123.ngrok-free.app/backend/health
+   https://abc123.ngrok-free.app/backend/tasks
+   https://abc123.ngrok-free.app/backend/docs
+
+✅ Your App:
+   https://abc123.ngrok-free.app/app/
+
+══════════════════════════════════════════════════════════════════
+
+🧪 TEST AFTER STARTING NGROK:
+
+Replace YOUR-URL with your actual ngrok URL:
+
+curl https://YOUR-URL.ngrok-free.app/backend/health
+curl https://YOUR-URL.ngrok-free.app/app/
+
+Or open in browser:
+https://YOUR-URL.ngrok-free.app/backend/docs
+https://YOUR-URL.ngrok-free.app/app/
+
+══════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT:
+
+The reverse proxy is ALREADY RUNNING on port 8888.
+Just start ngrok pointing to port 8888, and you're done!
+
+══════════════════════════════════════════════════════════════════
+
+✅ CHECKLIST:
+
+[ ] Reverse proxy running (port 8888) - ✅ Already done
+[ ] Backend running (port 8000) - ✅ Already done  
+[ ] Your app running (port 8080) - Start if needed
+[ ] Ngrok killed (pkill ngrok) - Run in YOUR terminal
+[ ] Ngrok started (ngrok http 8888) - Run in YOUR terminal
+
+══════════════════════════════════════════════════════════════════
+
+💡 PRO TIP:
+
+Keep this setup forever! No need to change anything.
+Just run "ngrok http 8888" whenever you need public access.
+
+══════════════════════════════════════════════════════════════════
+
+🆘 HELP:
+
+Can't connect? Check if services are running:
+  curl http://localhost:8888/backend/health
+  curl http://localhost:8888/app/
+
+Need to stop proxy? Run:
+  lsof -ti:8888 | xargs kill -9
+
+Need to restart proxy? Run:
+  cd /Users/dgolani/Documents/AI_Studio/backend
+  python3 reverse_proxy.py &
+
+══════════════════════════════════════════════════════════════════
+
+🎯 THAT'S IT!
+
+Now you can:
+✅ Run ngrok from any terminal
+✅ Access both projects through ONE url
+✅ Each project has its own path (/backend, /app)
+✅ No more "already online" errors
+
+Happy coding! 🚀
+

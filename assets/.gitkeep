@@ -1,0 +1,11 @@
+# Assets Directory
+
+This directory stores all uploaded images and rich assets.
+
+Structure:
+- images/models/ - Model photos
+- images/generated/ - AI-generated images
+- images/uploads/ - General uploads
+
+Note: Add assets/ to .gitignore to avoid committing large files
+
