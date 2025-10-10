@@ -60,18 +60,23 @@ async def lifespan(app: FastAPI):
     print("="*60)
 
 
-app = FastAPI(
-    title="AI Studio Backend",
-    version="1.0.0",
-    description="Backend API with Database + Ngrok Support",
-    lifespan=lifespan,
-    docs_url=None,  # Disable default docs, we'll create custom ones
-    redoc_url=None,  # Disable default redoc
-    openapi_url="/openapi.json",
-    servers=[
+# Determine server URLs based on environment
+# If DATABASE_URL exists (production), use Render URL; otherwise use local/ngrok URLs
+IS_PRODUCTION = os.getenv("DATABASE_URL") is not None
+if IS_PRODUCTION:
+    # Production (Render) - only show production URL
+    SERVERS_CONFIG = [
+        {
+            "url": "https://ai-studio-backend-ijkp.onrender.com",
+            "description": "Production Server"
+        }
+    ]
+else:
+    # Development (Local) - show ngrok and local URLs
+    SERVERS_CONFIG = [
         {
             "url": "https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio",
-            "description": "Production server (via ngrok)"
+            "description": "Development server (via ngrok)"
         },
         {
             "url": "http://localhost:8888/AIStudio",
@@ -82,6 +87,16 @@ app = FastAPI(
             "description": "Local direct"
         }
     ]
+
+app = FastAPI(
+    title="AI Studio Backend",
+    version="1.0.0",
+    description="Backend API with Database + Ngrok Support",
+    lifespan=lifespan,
+    docs_url=None,  # Disable default docs, we'll create custom ones
+    redoc_url=None,  # Disable default redoc
+    openapi_url="/openapi.json",
+    servers=SERVERS_CONFIG
 )
 
 # Mount assets directory - Must happen BEFORE adding middleware
