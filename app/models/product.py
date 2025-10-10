@@ -40,8 +40,8 @@ class GUID(TypeDecorator):
 class Product(Base):
     __tablename__ = "products"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    look_id = Column(GUID(), ForeignKey("looks.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    look_id = Column(String(36), ForeignKey("looks.id", ondelete="CASCADE"), nullable=False)
     
     sku = Column(String, nullable=True)
     name = Column(String, nullable=False)

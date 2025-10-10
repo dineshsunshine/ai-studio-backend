@@ -52,7 +52,7 @@ class AccessRequest(Base):
     """
     __tablename__ = "access_requests"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     email = Column(String(255), nullable=False, index=True)
     full_name = Column(String(255), nullable=True)
     google_id = Column(String(255), nullable=True)
@@ -67,7 +67,7 @@ class AccessRequest(Base):
     reviewed_at = Column(DateTime, nullable=True)
     
     # Review info
-    reviewed_by = Column(GUID(), ForeignKey("users.id"), nullable=True)
+    reviewed_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     rejection_reason = Column(Text, nullable=True)
     
     # Relationship to the admin who reviewed

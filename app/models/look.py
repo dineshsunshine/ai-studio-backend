@@ -44,7 +44,7 @@ class Look(Base):
     """
     __tablename__ = "looks"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     title = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     generated_image_url = Column(String, nullable=False)
