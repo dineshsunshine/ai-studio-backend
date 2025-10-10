@@ -22,3 +22,4 @@ pillow==11.3.0
 
 # Image processing
 aiofiles==24.1.0
+email-validator==2.1.0
