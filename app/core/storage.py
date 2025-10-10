@@ -1,6 +1,6 @@
 """
 Cloud storage service for handling file uploads
-Supports Google Cloud Storage
+Supports Google Cloud Storage and Cloudinary
 """
 import os
 from typing import BinaryIO, Optional
@@ -12,10 +12,16 @@ import mimetypes
 class StorageService:
     """
     Storage service for uploading and managing files in cloud storage.
-    Currently supports Google Cloud Storage.
+    Supports: Cloudinary (recommended), Google Cloud Storage, and Local Storage.
+    
+    Priority: Cloudinary > GCS > Local
     """
     
     def __init__(self):
+        # Cloudinary configuration (recommended for production)
+        self.use_cloudinary = os.getenv("USE_CLOUDINARY", "false").lower() == "true"
+        
+        # GCS configuration (alternative cloud storage)
         self.bucket_name = os.getenv("GCS_BUCKET_NAME", "ai-studio-models")
         self.use_gcs = os.getenv("USE_GCS", "false").lower() == "true"
         
@@ -31,10 +37,26 @@ class StorageService:
             os.makedirs(os.path.join(self.local_upload_dir, "looks"), exist_ok=True)
             os.makedirs(os.path.join(self.local_upload_dir, "products"), exist_ok=True)
         
+        # Initialize Cloudinary if enabled
+        self.cloudinary_service = None
+        if self.use_cloudinary:
+            try:
+                from app.core.cloudinary_storage import cloudinary_storage
+                if cloudinary_storage.is_enabled():
+                    self.cloudinary_service = cloudinary_storage
+                    print("✅ Using Cloudinary for image storage")
+                else:
+                    print("⚠️  Cloudinary configuration incomplete")
+                    self.use_cloudinary = False
+            except Exception as e:
+                print(f"⚠️  Could not initialize Cloudinary: {e}")
+                self.use_cloudinary = False
+        
+        # Initialize GCS if enabled (and Cloudinary not enabled)
         self.client = None
         self.bucket = None
         
-        if self.use_gcs:
+        if self.use_gcs and not self.use_cloudinary:
             try:
                 from google.cloud import storage
                 self.client = storage.Client()
@@ -48,7 +70,8 @@ class StorageService:
         self, 
         file_data: BinaryIO, 
         filename: str, 
-        content_type: Optional[str] = None
+        content_type: Optional[str] = None,
+        folder: str = "models"
     ) -> str:
         """
         Upload a file to cloud storage and return the public URL.
@@ -57,17 +80,23 @@ class StorageService:
             file_data: Binary file data
             filename: Original filename
             content_type: MIME type of the file
+            folder: Storage folder (models, looks, products, etc.)
             
         Returns:
             Public URL to the uploaded file
         """
-        # Generate unique filename
-        file_extension = os.path.splitext(filename)[1]
-        unique_filename = f"models/{uuid.uuid4()}{file_extension}"
-        
-        if self.use_gcs:
+        # Priority: Cloudinary > GCS > Local
+        if self.use_cloudinary and self.cloudinary_service:
+            return self.cloudinary_service.upload_file(file_data, folder, filename)
+        elif self.use_gcs:
+            # Generate unique filename for GCS
+            file_extension = os.path.splitext(filename)[1]
+            unique_filename = f"{folder}/{uuid.uuid4()}{file_extension}"
             return self._upload_to_gcs(file_data, unique_filename, content_type)
         else:
+            # Generate unique filename for local storage
+            file_extension = os.path.splitext(filename)[1]
+            unique_filename = f"{folder}/{uuid.uuid4()}{file_extension}"
             return self._upload_to_local(file_data, unique_filename)
     
     def _upload_to_gcs(
@@ -136,7 +165,10 @@ class StorageService:
         Returns:
             True if successful, False otherwise
         """
-        if self.use_gcs:
+        # Detect storage type from URL
+        if "cloudinary.com" in file_url and self.cloudinary_service:
+            return self.cloudinary_service.delete_file(file_url)
+        elif self.use_gcs and "googleapis.com" in file_url:
             return self._delete_from_gcs(file_url)
         else:
             return self._delete_from_local(file_url)

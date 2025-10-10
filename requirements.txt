@@ -18,6 +18,7 @@ google-auth-oauthlib==1.2.2
 # Cloud Storage & AI Generation
 google-cloud-storage>=2.10.0,<3.0.0
 google-cloud-aiplatform==1.78.0
+cloudinary==1.41.0
 pillow==11.3.0
 
 # Image processing
