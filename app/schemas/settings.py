@@ -144,35 +144,6 @@ class UserSettingsResponse(UserSettingsData):
                     "modelManager": {"systemPrompt": "..."}
                 },
                 "updatedAt": "2025-10-10T12:00:00Z"
-                            "forest": "..."
-                        }
-                    },
-                    "copywriter": {"systemPrompt": "..."},
-                    "finishingStudio": {"systemPrompt": "..."},
-                    "modelManager": {"systemPrompt": "..."}
-                }
-            }
-        }
-
-
-# Response schema with metadata
-class UserSettingsResponse(BaseModel):
-    """Response schema for user settings with metadata"""
-    theme: Literal['light', 'dark']
-    toolSettings: ToolSettingsComplete
-    updatedAt: str = Field(..., description="ISO timestamp of last update")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "theme": "dark",
-                "toolSettings": {
-                    "lookCreator": {"systemPrompt": "...", "sceneDescriptions": {}},
-                    "copywriter": {"systemPrompt": "..."},
-                    "finishingStudio": {"systemPrompt": "..."},
-                    "modelManager": {"systemPrompt": "..."}
-                },
-                "updatedAt": "2025-10-10T12:00:00Z"
             }
         }
 
