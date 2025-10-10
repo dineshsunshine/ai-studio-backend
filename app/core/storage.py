@@ -114,11 +114,15 @@ class StorageService:
             # Priority: NGROK_PUBLIC_URL > BASE_URL > localhost
             public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
             
-            # Remove /AIStudio suffix if present (we'll add it back)
-            public_url = public_url.rstrip('/AIStudio').rstrip('/')
-            
-            # Return public asset URL (with /images/ sub-path)
-            return f"{public_url}/AIStudio/assets/images/{filename}"
+            # Determine if we're using ngrok (has /AIStudio prefix) or production (no prefix)
+            if "ngrok" in public_url or "localhost:8888" in public_url:
+                # Development: use /AIStudio prefix
+                public_url = public_url.rstrip('/AIStudio').rstrip('/')
+                return f"{public_url}/AIStudio/assets/images/{filename}"
+            else:
+                # Production: no prefix
+                public_url = public_url.rstrip('/')
+                return f"{public_url}/assets/images/{filename}"
         except Exception as e:
             raise Exception(f"Failed to upload to local storage: {str(e)}")
     

@@ -131,8 +131,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Set public URL environment variable for storage service
-os.environ["NGROK_PUBLIC_URL"] = "https://zestfully-chalky-nikia.ngrok-free.dev"
+# Set public URL environment variable for storage service (only for development)
+if not IS_PRODUCTION:
+    os.environ["NGROK_PUBLIC_URL"] = "https://zestfully-chalky-nikia.ngrok-free.dev"
+else:
+    # On production, use Render URL
+    os.environ["BASE_URL"] = "https://ai-studio-backend-ijkp.onrender.com"
 
 # Include ALL API routes (auth, admin, models, looks)
 from app.api.v1.api import api_router
