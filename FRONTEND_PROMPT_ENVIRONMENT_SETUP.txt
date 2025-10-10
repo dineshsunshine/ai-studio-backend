@@ -1,0 +1,91 @@
+Hi! I need you to implement environment configuration in our frontend to support both development and production backend systems.
+
+## Two Environments:
+
+**Development (for testing):**
+- API Base: https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/api/v1
+- Assets: https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/assets
+
+**Production (for live use):**
+- API Base: https://ai-studio-backend-ijkp.onrender.com/api/v1
+- Assets: https://ai-studio-backend-ijkp.onrender.com/assets
+
+## What You Need to Do:
+
+1. **Create a config file** (config.ts) with both environment URLs
+2. **Add a simple toggle** to switch between development and production (just change one variable)
+3. **Update all API calls** to use the config instead of hardcoded URLs
+4. **Fix image URLs** - backend returns relative paths like "/assets/models/abc.jpeg", you need to prepend the base URL
+5. **Always include this header** in every API request: `'ngrok-skip-browser-warning': 'true'`
+
+## Example Config Structure:
+
+```typescript
+const config = {
+  development: {
+    apiBaseUrl: 'https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/api/v1',
+    assetsBaseUrl: 'https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/assets',
+  },
+  production: {
+    apiBaseUrl: 'https://ai-studio-backend-ijkp.onrender.com/api/v1',
+    assetsBaseUrl: 'https://ai-studio-backend-ijkp.onrender.com/assets',
+  }
+};
+
+// Change this line to switch environments:
+const CURRENT_ENV = 'production'; // or 'development'
+```
+
+## All API Endpoints (relative to apiBaseUrl):
+
+**Auth:**
+- POST /auth/google - Login with Google
+- GET /auth/me - Get current user
+- GET /auth/request-status?email={email} - Check access request
+
+**Settings:**
+- GET /settings - Get user settings
+- PUT /settings - Update settings
+- POST /settings/reset - Reset to defaults
+
+**Models:**
+- GET /models/ - List models
+- POST /models/ - Create model
+- DELETE /models/{id} - Delete model
+
+**Looks:**
+- GET /looks/ - List looks
+- POST /looks/ - Create look
+- DELETE /looks/{id} - Delete look
+
+**Admin:**
+- GET /admin/users - List users
+- PATCH /admin/users/{id} - Update user
+- GET /admin/access-requests - List requests
+- POST /admin/access-requests/{id}/approve - Approve
+- GET /admin/defaults - Get default settings
+- PUT /admin/defaults - Update default settings
+
+## Important:
+
+- All authenticated endpoints need: `Authorization: Bearer {accessToken}`
+- All requests need: `ngrok-skip-browser-warning: true` header
+- Image URLs from API are relative - you must prepend the base URL
+- Production (Render) may be slow on first request (cold start)
+
+## Testing:
+
+Test connectivity by calling: `${apiBaseUrl}/health`
+
+You should get a JSON response with status "healthy".
+
+## Documentation:
+
+Full API docs with examples:
+- Dev: https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio/docs
+- Prod: https://ai-studio-backend-ijkp.onrender.com/docs
+
+I've also created a detailed guide (FRONTEND_ENVIRONMENT_CONFIG_GUIDE.md) with complete TypeScript code examples for all APIs. Check that file for full implementation details.
+
+Let me know if you have any questions!
+
