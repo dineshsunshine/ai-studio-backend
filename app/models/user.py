@@ -57,7 +57,7 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     google_id = Column(String(255), unique=True, index=True, nullable=True)
     full_name = Column(String(255), nullable=True)
