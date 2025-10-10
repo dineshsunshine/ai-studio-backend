@@ -82,7 +82,9 @@ class ToolSettingsComplete(BaseModel):
                         "beach": "A beach...",
                         "city": "A city...",
                         "forest": "A forest..."
-                    }
+                    },
+                    "simpleLayeringInstruction": "...",
+                    "advancedLayeringInstructionTemplate": "..."
                 },
                 "copywriter": {
                     "systemPrompt": "You are a professional fashion copywriter..."
@@ -113,6 +115,35 @@ class UserSettingsData(BaseModel):
                             "studio": "...",
                             "beach": "...",
                             "city": "...",
+                            "forest": "..."
+                        },
+                        "simpleLayeringInstruction": "...",
+                        "advancedLayeringInstructionTemplate": "..."
+                    },
+                    "copywriter": {"systemPrompt": "..."},
+                    "finishingStudio": {"systemPrompt": "..."},
+                    "modelManager": {"systemPrompt": "..."}
+                },
+                "updatedAt": "2025-10-10T12:00:00Z"
+            }
+        }
+
+
+class UserSettingsResponse(UserSettingsData):
+    """Schema for user settings with metadata"""
+    updatedAt: str = Field(..., alias="updatedAt", description="ISO timestamp of last update")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "theme": "dark",
+                "toolSettings": {
+                    "lookCreator": {"systemPrompt": "...", "sceneDescriptions": {"studio": "...", "beach": "...", "city": "...", "forest": "..."}},
+                    "copywriter": {"systemPrompt": "..."},
+                    "finishingStudio": {"systemPrompt": "..."},
+                    "modelManager": {"systemPrompt": "..."}
+                },
+                "updatedAt": "2025-10-10T12:00:00Z"
                             "forest": "..."
                         }
                     },

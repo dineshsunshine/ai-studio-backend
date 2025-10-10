@@ -18,7 +18,7 @@ class DefaultSettingsData(BaseModel):
                 "defaultToolSettings": {
                     "lookCreator": {
                         "systemPrompt": "...",
-                        "sceneDescriptions": {...},
+                        "sceneDescriptions": {"studio": "...", "beach": "...", "city": "...", "forest": "..."},
                         "simpleLayeringInstruction": "...",
                         "advancedLayeringInstructionTemplate": "..."
                     },
@@ -41,7 +41,7 @@ class DefaultSettingsResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "defaultTheme": "light",
-                "defaultToolSettings": {...},
+                "defaultToolSettings": {"lookCreator": {}, "copywriter": {}, "finishingStudio": {}, "modelManager": {}},
                 "updatedAt": "2025-10-10T12:00:00Z",
                 "updatedBy": "admin-user-id-123"
             }
