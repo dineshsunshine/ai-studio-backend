@@ -1,0 +1,101 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║         CLOUDINARY SETUP - 3 EASY STEPS                             ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+STEP 1: Get Cloudinary Account (2 mins)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Go to: https://cloudinary.com/users/register_free
+2. Sign up (free account)
+3. Verify your email
+4. You'll see your dashboard with credentials
+
+
+STEP 2: Copy Your Credentials (1 min)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On Cloudinary Dashboard, you'll see:
+
+   Cloud Name: _____________________ (example: my-cloud-name)
+   API Key: ________________________ (example: 123456789012345)
+   API Secret: _____________________ (example: AbCdEfGhIjKlMn)
+
+
+STEP 3: Add to Render (2 mins)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Go to: https://dashboard.render.com/
+2. Select: ai-studio-backend
+3. Click: "Environment" tab
+4. Add these 4 variables:
+
+   ┌─────────────────────────────────────────────────────┐
+   │ Key: CLOUDINARY_CLOUD_NAME                          │
+   │ Value: [paste your cloud name]                      │
+   └─────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────┐
+   │ Key: CLOUDINARY_API_KEY                             │
+   │ Value: [paste your API key]                         │
+   └─────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────┐
+   │ Key: CLOUDINARY_API_SECRET                          │
+   │ Value: [paste your API secret]                      │
+   └─────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────┐
+   │ Key: USE_CLOUDINARY                                 │
+   │ Value: true                                         │
+   └─────────────────────────────────────────────────────┘
+
+5. Click "Save Changes"
+6. Wait ~2-3 minutes for deployment
+
+
+THAT'S IT! ✅
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After deployment completes:
+✅ All new images will be stored on Cloudinary
+✅ Images will NEVER be lost (even after service restarts)
+✅ Fast CDN delivery worldwide
+✅ 25GB storage + 25GB bandwidth FREE
+
+
+TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Upload a model via your frontend
+2. Check the image URL - it should start with:
+   https://res.cloudinary.com/your-cloud-name/...
+3. Open the URL in browser - should load instantly
+4. Check Cloudinary dashboard - you'll see your image there!
+
+
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If images still use local storage:
+• Check Render logs for "✅ Using Cloudinary for image storage"
+• Verify all 4 environment variables are set correctly
+• Make sure USE_CLOUDINARY=true (not "True" or "TRUE")
+• Wait for deployment to complete fully
+
+If you see "Cloudinary configuration incomplete":
+• Double-check your credentials are copied correctly
+• Cloud name should be lowercase, no spaces
+• API Key should be numbers only
+• API Secret is case-sensitive
+
+
+DETAILED GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For more details, see: CLOUDINARY_SETUP_GUIDE.md
+
+
+TOTAL TIME: ~5 minutes
+
