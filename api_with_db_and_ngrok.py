@@ -145,7 +145,9 @@ async def custom_swagger_ui():
         <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
         <script>
         const ui = SwaggerUIBundle({
-            url: '/openapi.json', // Fixed to always use /openapi.json
+            url: window.location.pathname.includes('/AIStudio') 
+                ? '/AIStudio/openapi.json' 
+                : '/openapi.json',
             dom_id: '#swagger-ui',
             deepLinking: true,
             presets: [
