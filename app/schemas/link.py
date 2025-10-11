@@ -46,6 +46,7 @@ class LinkResponse(BaseModel):
     linkId: str = Field(..., alias="linkId", description="Alphanumeric short link ID")
     clientName: str = Field(..., alias="clientName", description="Client's name")
     clientPhone: Optional[str] = Field(None, alias="clientPhone", description="Client's phone number")
+    coverImageUrl: Optional[str] = Field(None, alias="coverImageUrl", description="Cover/masthead image URL")
     shortUrl: str = Field(..., alias="shortUrl", description="Full short URL to share with client")
     looks: List[LookResponse] = Field(..., description="List of looks in this link")
     createdAt: str = Field(..., alias="createdAt", description="Creation timestamp")
@@ -91,6 +92,7 @@ class SharedLinkResponse(BaseModel):
     """Schema for publicly shared link (no auth required)"""
     linkId: str = Field(..., alias="linkId", description="Alphanumeric link ID")
     clientName: str = Field(..., alias="clientName", description="Client's name")
+    coverImageUrl: Optional[str] = Field(None, alias="coverImageUrl", description="Cover/masthead image URL")
     looks: List[LookResponse] = Field(..., description="List of looks to display")
     createdAt: str = Field(..., alias="createdAt", description="Creation timestamp")
     

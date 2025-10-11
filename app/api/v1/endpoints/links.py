@@ -3,7 +3,8 @@ API endpoints for Links (shareable collections of looks)
 """
 import random
 import string
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import io
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.core.database import get_db
@@ -60,6 +61,7 @@ def serialize_link(link: Link) -> dict:
         "linkId": link.link_id,
         "clientName": link.client_name,
         "clientPhone": link.client_phone,
+        "coverImageUrl": link.cover_image_url,
         "shortUrl": get_short_url(link.link_id),
         "looks": [
             {
@@ -358,6 +360,7 @@ async def get_shared_link(
     return SharedLinkResponse(
         linkId=link.link_id,
         clientName=link.client_name,
+        coverImageUrl=link.cover_image_url,
         looks=[
             LookResponse(
                 id=str(look.id),
@@ -384,4 +387,140 @@ async def get_shared_link(
         ],
         createdAt=link.created_at.isoformat()
     )
+
+
+@router.put("/{link_id}/cover", response_model=LinkResponse)
+async def upload_cover_image(
+    link_id: str,
+    cover_image: UploadFile = File(..., description="Cover image file"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload or update cover image for a link.
+    
+    **Authentication required.**
+    
+    - Users can only update their own links
+    - Accepts image files (JPEG, PNG, WebP, GIF)
+    - Deletes old cover image if it exists
+    - Saves new image to cloud storage
+    
+    Path Parameters:
+    - link_id: UUID of the link
+    
+    Request Body (multipart/form-data):
+    - cover_image: Image file
+    
+    Returns the updated link with new cover image URL.
+    """
+    from app.core.storage import storage_service
+    
+    # Find the link
+    link = db.query(Link).filter(Link.id == link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found"
+        )
+    
+    # Check ownership
+    if link.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this link"
+        )
+    
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if cover_image.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    # Delete old cover image if it exists
+    if link.cover_image_url:
+        try:
+            storage_service.delete_file(link.cover_image_url)
+        except Exception as e:
+            print(f"Warning: Failed to delete old cover image: {e}")
+    
+    # Upload new cover image
+    try:
+        file_data = io.BytesIO(await cover_image.read())
+        new_cover_url = storage_service.upload_file(
+            file_data=file_data,
+            filename=cover_image.filename,
+            content_type=cover_image.content_type,
+            folder="links"
+        )
+        
+        # Update link with new cover image URL
+        link.cover_image_url = new_cover_url
+        db.commit()
+        db.refresh(link)
+        
+        return LinkResponse(**serialize_link(link))
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload cover image: {str(e)}"
+        )
+
+
+@router.delete("/{link_id}/cover", response_model=LinkResponse)
+async def remove_cover_image(
+    link_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove cover image from a link.
+    
+    **Authentication required.**
+    
+    - Users can only update their own links
+    - Deletes the cover image from cloud storage
+    - Sets cover_image_url to null in database
+    
+    Path Parameters:
+    - link_id: UUID of the link
+    
+    Returns the updated link with cover_image_url set to null.
+    """
+    from app.core.storage import storage_service
+    
+    # Find the link
+    link = db.query(Link).filter(Link.id == link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found"
+        )
+    
+    # Check ownership
+    if link.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this link"
+        )
+    
+    # Delete cover image if it exists
+    if link.cover_image_url:
+        try:
+            storage_service.delete_file(link.cover_image_url)
+        except Exception as e:
+            print(f"Warning: Failed to delete cover image: {e}")
+    
+    # Set cover_image_url to null
+    link.cover_image_url = None
+    db.commit()
+    db.refresh(link)
+    
+    return LinkResponse(**serialize_link(link))
 

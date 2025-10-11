@@ -48,6 +48,23 @@
             margin-top: 10px;
         }
 
+        .cover-image-container {
+            width: 100%;
+            max-height: 500px;
+            overflow: hidden;
+            border-radius: 16px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .cover-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
         .loading {
             text-align: center;
             color: white;
@@ -271,6 +288,10 @@
                 <div class="date" id="created-date"></div>
             </div>
 
+            <div id="cover-image-container" class="cover-image-container" style="display: none;">
+                <img id="cover-image" class="cover-image" alt="Cover Image" />
+            </div>
+
             <div class="looks-grid" id="looks-grid"></div>
 
             <div class="footer">
@@ -348,6 +369,17 @@
             // Set header info
             document.getElementById('client-name').textContent = `For ${data.clientName}`;
             document.getElementById('created-date').textContent = `Created on ${formatDate(data.createdAt)}`;
+
+            // Display cover image if it exists
+            if (data.coverImageUrl) {
+                const coverContainer = document.getElementById('cover-image-container');
+                const coverImage = document.getElementById('cover-image');
+                coverImage.src = data.coverImageUrl;
+                coverImage.onerror = function() {
+                    coverContainer.style.display = 'none';
+                };
+                coverContainer.style.display = 'block';
+            }
 
             // Render looks
             const looksGrid = document.getElementById('looks-grid');
