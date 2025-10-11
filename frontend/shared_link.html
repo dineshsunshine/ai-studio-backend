@@ -541,6 +541,9 @@
     </div>
 
     <script>
+        // API Configuration - MUST be defined first
+        const API_BASE = window.location.origin + '/api/v1';
+
         // Extract link ID from URL
         const pathParts = window.location.pathname.split('/');
         const linkId = pathParts[pathParts.length - 1];
@@ -550,9 +553,6 @@
         } else {
             loadSharedLink(linkId);
         }
-
-        // API Configuration
-        const API_BASE = window.location.origin + '/api/v1';
 
         async function loadSharedLink(linkId) {
             try {
