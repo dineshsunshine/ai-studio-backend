@@ -1,0 +1,107 @@
+IMPORTANT: Links API Field Changes
+
+We've updated the Links feature API to use more appropriate field names:
+
+OLD FIELDS (Remove these):
+- clientName
+- clientPhone
+
+NEW FIELDS (Use these instead):
+- title (required) - The name/title of the link collection
+- description (optional) - A description of the link collection
+
+WHAT YOU NEED TO CHANGE:
+
+1. When Creating a Link (POST /api/v1/links/):
+
+   OLD:
+   {
+     "clientName": "John Doe",
+     "clientPhone": "+1234567890",
+     "lookIds": [...]
+   }
+
+   NEW:
+   {
+     "title": "Spring Collection 2025",
+     "description": "Elegant spring looks for modern women",
+     "lookIds": [...]
+   }
+
+2. When Updating a Link (PATCH /api/v1/links/{id}):
+
+   OLD:
+   {
+     "clientName": "Jane Smith",
+     "clientPhone": "+1987654321",
+     "lookIds": [...]
+   }
+
+   NEW:
+   {
+     "title": "Summer Collection 2025",
+     "description": "Beach-ready summer looks",
+     "lookIds": [...]
+   }
+
+3. API Responses - All link responses now include:
+
+   {
+     "id": "...",
+     "linkId": "AB12CD34",
+     "title": "Spring Collection 2025",           ← NEW
+     "description": "Elegant spring looks",       ← NEW
+     "coverImageUrl": "...",
+     "shortUrl": "...",
+     "looks": [...],
+     "createdAt": "...",
+     "updatedAt": "..."
+   }
+
+4. UI Changes Required:
+
+   - Change form labels from "Client Name" to "Link Title"
+   - Change form labels from "Client Phone" to "Link Description" (optional)
+   - Update all variable names in your code from clientName → title
+   - Update all variable names in your code from clientPhone → description
+   - Update how you display link information to show title and description instead
+
+5. Shared Link Viewer:
+   
+   - The public shared link page now shows:
+     - Link title as the main heading
+     - Link description below the title
+   
+   - This gives a better preview of what the collection is about
+
+EXAMPLE UI CHANGES:
+
+Before:
+┌────────────────────────────────┐
+│ Create New Link                │
+├────────────────────────────────┤
+│ Client Name: [____________]    │
+│ Client Phone: [___________]    │
+│ Select Looks: [...]            │
+└────────────────────────────────┘
+
+After:
+┌────────────────────────────────┐
+│ Create New Link                │
+├────────────────────────────────┤
+│ Link Title: [_______________]  │
+│ Description: [_____________]   │
+│   (Optional)                   │
+│ Select Looks: [...]            │
+└────────────────────────────────┘
+
+TESTING:
+
+After making these changes:
+1. Try creating a new link with title and description
+2. Try updating an existing link's title and description
+3. View a shared link to see title and description displayed
+4. Verify all API calls use the new field names
+
+The backend has been updated and is ready for these changes!
+
