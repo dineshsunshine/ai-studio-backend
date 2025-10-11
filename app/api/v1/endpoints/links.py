@@ -54,8 +54,28 @@ def get_short_url(link_id: str) -> str:
         return f"http://localhost:8000/l/{link_id}"
 
 
-def serialize_link(link: Link) -> dict:
-    """Serialize a Link object to dictionary"""
+def serialize_link(link: Link, db: Session = None) -> dict:
+    """Serialize a Link object to dictionary with ordered looks"""
+    # Get looks ordered by position from junction table
+    from sqlalchemy import text
+    if db:
+        result = db.execute(
+            text("""
+                SELECT l.*, ll.position 
+                FROM looks l
+                JOIN link_looks ll ON l.id = ll.look_id
+                WHERE ll.link_id = :link_id
+                ORDER BY ll.position
+            """),
+            {"link_id": link.id}
+        )
+        ordered_look_ids = [row[0] for row in result]
+        # Sort looks based on the ordered IDs
+        looks_dict = {str(look.id): look for look in link.looks}
+        ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
+    else:
+        ordered_looks = link.looks
+    
     return {
         "id": str(link.id),
         "linkId": link.link_id,
@@ -85,7 +105,7 @@ def serialize_link(link: Link) -> dict:
                 "createdAt": look.created_at.isoformat(),
                 "updatedAt": look.updated_at.isoformat()
             }
-            for look in link.looks
+            for look in ordered_looks
         ],
         "createdAt": link.created_at.isoformat(),
         "updatedAt": link.updated_at.isoformat()
@@ -140,10 +160,17 @@ async def create_link(
         link_id=link_id
     )
     
-    # Add looks to link
-    new_link.looks = looks
-    
     db.add(new_link)
+    db.flush()  # Get the link ID
+    
+    # Add looks to link with position
+    from sqlalchemy import text
+    for position, look_id in enumerate(link_data.lookIds):
+        db.execute(
+            text("INSERT INTO link_looks (link_id, look_id, position) VALUES (:link_id, :look_id, :position)"),
+            {"link_id": new_link.id, "look_id": look_id, "position": position}
+        )
+    
     db.commit()
     db.refresh(new_link)
     
@@ -283,7 +310,19 @@ async def update_link(
                 detail="One or more looks not found or do not belong to you"
             )
         
-        link.looks = looks
+        # Clear existing associations
+        from sqlalchemy import text
+        db.execute(
+            text("DELETE FROM link_looks WHERE link_id = :link_id"),
+            {"link_id": link.id}
+        )
+        
+        # Add new associations with position
+        for position, look_id in enumerate(link_data.lookIds):
+            db.execute(
+                text("INSERT INTO link_looks (link_id, look_id, position) VALUES (:link_id, :look_id, :position)"),
+                {"link_id": link.id, "look_id": look_id, "position": position}
+            )
     
     db.commit()
     db.refresh(link)

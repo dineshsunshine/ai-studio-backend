@@ -1,0 +1,188 @@
+LOOK ORDERING FEATURE - IMPLEMENTATION GUIDE
+
+The backend now supports ordering of looks within a link. Here's how to implement it:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HOW IT WORKS:
+
+1. The order of looks is determined by the ORDER of look IDs in the lookIds array
+2. First look ID in array = position 0 (shown first)
+3. Second look ID in array = position 1 (shown second)
+4. And so on...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHEN CREATING A LINK:
+
+POST /api/v1/links/
+
+{
+  "title": "Spring Collection",
+  "description": "Beautiful spring looks",
+  "lookIds": [
+    "look-uuid-3",  ← This will be shown FIRST
+    "look-uuid-1",  ← This will be shown SECOND
+    "look-uuid-5"   ← This will be shown THIRD
+  ]
+}
+
+The looks will appear in the exact order you specify in the array.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHEN UPDATING LOOK ORDER:
+
+PATCH /api/v1/links/{link-uuid}
+
+{
+  "lookIds": [
+    "look-uuid-5",  ← Move this to FIRST
+    "look-uuid-3",  ← Move this to SECOND
+    "look-uuid-1"   ← Move this to THIRD
+  ]
+}
+
+Just send the new order! The backend will update the positions automatically.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPLEMENTATION WITH DRAG & DROP:
+
+1. Display looks in a list (use the order from API response)
+2. Implement drag-and-drop functionality
+3. When user drags and reorders looks:
+   - Update your local state with the new order
+   - Extract the look IDs in the new order
+   - Call PATCH /api/v1/links/{link-uuid} with the new lookIds array
+4. The backend will save the new order
+5. The public shared link will show looks in the new order
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE FLOW:
+
+Step 1: User creates a link with 3 looks
+POST with lookIds: ["A", "B", "C"]
+→ Public link shows: Look A, Look B, Look C
+
+Step 2: User drags Look C to the top
+Your state becomes: ["C", "A", "B"]
+
+Step 3: Send update to backend
+PATCH with lookIds: ["C", "A", "B"]
+→ Public link now shows: Look C, Look A, Look B
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+UI RECOMMENDATIONS:
+
+1. Link Management Page:
+   ┌────────────────────────────────────────┐
+   │  Edit Link: Spring Collection          │
+   ├────────────────────────────────────────┤
+   │  Looks (Drag to reorder):              │
+   │                                         │
+   │  ☰ Look 1: Casual Summer    [Remove]   │
+   │  ☰ Look 2: Evening Gown     [Remove]   │
+   │  ☰ Look 3: Business Casual  [Remove]   │
+   │                                         │
+   │  [+ Add More Looks]                    │
+   │                                         │
+   │  [Cancel]              [Save Changes]  │
+   └────────────────────────────────────────┘
+
+2. Implement a drag handle (☰) for each look
+3. Show visual feedback during dragging
+4. Auto-save or show "Save Changes" button
+5. Show success message after saving
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXAMPLE CODE STRUCTURE:
+
+// State
+const [looks, setLooks] = useState(linkData.looks);
+
+// After drag-and-drop reorder
+const handleReorder = (newOrder) => {
+  setLooks(newOrder);
+  
+  // Extract just the IDs in new order
+  const lookIds = newOrder.map(look => look.id);
+  
+  // Update backend
+  updateLinkOrder(linkId, lookIds);
+};
+
+// API call
+async function updateLinkOrder(linkId, lookIds) {
+  await fetch(`${API_BASE}/links/${linkId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'ngrok-skip-browser-warning': '1'
+    },
+    body: JSON.stringify({ lookIds })
+  });
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT NOTES:
+
+1. The order in the API response is already correct
+   - GET /api/v1/links/ returns looks in order
+   - GET /api/v1/links/{id} returns looks in order
+   - GET /api/v1/links/shared/{linkId} returns looks in order
+
+2. You don't need to sort or reorder on frontend
+   - Just display them in the order received
+   - Backend handles all ordering logic
+
+3. When updating, send ALL look IDs
+   - Don't send partial updates
+   - Always send the complete array with new order
+
+4. Removing a look?
+   - Just exclude its ID from the lookIds array
+   - Example: Remove look B from ["A", "B", "C"]
+   - Send: ["A", "C"]
+
+5. Adding a look?
+   - Include its ID at the desired position
+   - Example: Add look D between A and C
+   - Send: ["A", "D", "C"]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DRAG-AND-DROP LIBRARIES:
+
+Popular options for React:
+- react-beautiful-dnd (most popular)
+- react-dnd
+- @dnd-kit/core (modern alternative)
+
+All of these will give you the reordered array, which you can then
+send to the backend using the PATCH endpoint.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TESTING:
+
+1. Create a link with 3 looks in order: A, B, C
+2. View the public link - confirm order is A, B, C
+3. In your admin UI, drag look C to the top
+4. Save changes
+5. Refresh the public link - confirm order is now C, A, B
+6. Try removing a look
+7. Try adding a new look in the middle
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+That's it! The backend handles all the ordering automatically.
+Just send the look IDs in the order you want them to appear.
+
+Backend is ready! 🚀
+
