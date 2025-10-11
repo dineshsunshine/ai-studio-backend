@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shared Lookbook</title>
+    <title>Luxury Lookbook</title>
     <style>
         * {
             margin: 0;
@@ -12,237 +12,417 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-            animation: fadeInDown 0.8s ease;
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .header .client-name {
-            font-size: 1.5rem;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-
-        .header .date {
-            font-size: 0.9rem;
-            opacity: 0.7;
-            margin-top: 10px;
-        }
-
-        .cover-image-container {
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-height: 500px;
-            overflow: hidden;
-            border-radius: 16px;
-            margin-bottom: 40px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            animation: fadeInUp 0.8s ease;
+            height: 100vh;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loading-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 24px;
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error Screen */
+        .error-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: #0a0a0a;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .error-screen.show {
+            display: flex;
+        }
+
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            opacity: 0.5;
+        }
+
+        .error-title {
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .error-message {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            max-width: 400px;
+        }
+
+        /* Main Container */
+        .container {
+            display: none;
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        .container.show {
+            display: block;
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .container::-webkit-scrollbar {
+            display: none;
+        }
+        .container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Cover Page */
+        .cover-page {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
         }
 
         .cover-image {
             width: 100%;
-            height: 100%;
+            max-width: 800px;
+            height: 60vh;
             object-fit: cover;
-            display: block;
+            border-radius: 4px;
+            margin-bottom: 60px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            animation: fadeInUp 1s ease-out;
         }
 
-        .loading {
-            text-align: center;
-            color: white;
-            font-size: 1.5rem;
-            padding: 100px 20px;
+        .cover-title {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 300;
+            letter-spacing: -2px;
+            margin-bottom: 24px;
+            line-height: 1.1;
+            animation: fadeInUp 1s ease-out 0.2s backwards;
         }
 
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        .error {
-            background: #ff4757;
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
+        .cover-description {
+            font-size: clamp(16px, 2vw, 20px);
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.6);
             max-width: 600px;
-            margin: 50px auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-
-        .looks-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
+            letter-spacing: 0.5px;
+            line-height: 1.6;
             margin-bottom: 40px;
+            animation: fadeInUp 1s ease-out 0.4s backwards;
         }
 
-        .look-card {
-            background: white;
-            border-radius: 16px;
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeInUp 1s ease-out 0.6s backwards, bounce 2s ease-in-out infinite;
+            cursor: pointer;
+        }
+
+        .scroll-hint-text {
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 12px;
+        }
+
+        .scroll-arrow {
+            width: 24px;
+            height: 24px;
+            border-right: 2px solid rgba(255, 255, 255, 0.4);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+            transform: rotate(45deg);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(10px); }
+        }
+
+        /* Look Page */
+        .look-page {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            padding: 40px;
+            position: relative;
             overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            animation: fadeInUp 0.8s ease backwards;
         }
 
-        .look-card:nth-child(1) { animation-delay: 0.1s; }
-        .look-card:nth-child(2) { animation-delay: 0.2s; }
-        .look-card:nth-child(3) { animation-delay: 0.3s; }
-        .look-card:nth-child(4) { animation-delay: 0.4s; }
-
-        .look-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
-        }
-
-        .look-image {
+        .look-page::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 400px;
-            object-fit: cover;
-            background: #f0f0f0;
+            height: 100%;
+            background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+            pointer-events: none;
         }
 
         .look-content {
-            padding: 25px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            max-width: 1400px;
+            width: 100%;
+            height: 90vh;
+            align-items: center;
+        }
+
+        .look-image-container {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .look-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 2px;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s ease;
+        }
+
+        .look-image:hover {
+            transform: scale(1.02);
+        }
+
+        .look-details {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+            padding: 40px;
+        }
+
+        .look-number {
+            font-size: 14px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: 32px;
+            font-weight: 300;
         }
 
         .look-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 10px;
+            font-size: clamp(36px, 5vw, 64px);
+            font-weight: 300;
+            letter-spacing: -1px;
+            margin-bottom: 24px;
+            line-height: 1.1;
         }
 
         .look-notes {
-            font-size: 0.95rem;
-            color: #718096;
-            margin-bottom: 20px;
-            line-height: 1.6;
+            font-size: 16px;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 48px;
+            font-weight: 300;
+            letter-spacing: 0.3px;
         }
 
         .products-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 32px;
         }
 
         .products-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #4a5568;
-            margin-bottom: 15px;
+            font-size: 12px;
+            letter-spacing: 3px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 24px;
+            font-weight: 400;
+        }
+
+        .products-grid {
+            display: grid;
+            gap: 24px;
         }
 
         .product-item {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #f7fafc;
-            border-radius: 8px;
-            transition: background 0.2s ease;
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 20px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
         }
 
         .product-item:hover {
-            background: #edf2f7;
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(8px);
         }
 
         .product-thumbnail {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             object-fit: cover;
-            border-radius: 6px;
-            background: #e2e8f0;
+            border-radius: 2px;
         }
 
         .product-info {
-            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .product-name {
-            font-weight: 600;
-            color: #2d3748;
-            font-size: 0.9rem;
-            margin-bottom: 4px;
+            font-size: 16px;
+            font-weight: 400;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
         }
 
-        .product-designer {
-            font-size: 0.85rem;
-            color: #718096;
-            margin-bottom: 4px;
+        .product-details {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.6;
         }
 
-        .product-price {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #667eea;
-        }
-
-        .product-link {
-            display: inline-block;
+        .product-sku {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 1px;
+            text-transform: uppercase;
             margin-top: 8px;
-            color: #667eea;
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: color 0.2s ease;
         }
 
-        .product-link:hover {
-            color: #764ba2;
-            text-decoration: underline;
+        /* Page Navigation */
+        .page-nav {
+            position: fixed;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-dot::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .nav-dot.active {
+            background: #ffffff;
+            height: 32px;
+        }
+
+        .nav-dot:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Footer */
         .footer {
-            text-align: center;
-            color: white;
-            opacity: 0.7;
-            margin-top: 60px;
-            padding: 20px;
-            font-size: 0.9rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to top, rgba(10, 10, 10, 0.95), transparent);
+            z-index: 50;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.3);
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
+        /* Animations */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -254,103 +434,136 @@
             }
         }
 
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
-            .looks-grid {
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .look-content {
                 grid-template-columns: 1fr;
+                gap: 40px;
+                height: auto;
+                padding: 60px 0;
             }
 
-            .look-image {
-                height: 300px;
+            .look-image-container {
+                height: 50vh;
+            }
+
+            .look-details {
+                padding: 0 20px;
+            }
+
+            .page-nav {
+                right: 20px;
+            }
+
+            .footer {
+                padding: 20px;
+                font-size: 9px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .cover-page {
+                padding: 40px 20px;
+            }
+
+            .cover-image {
+                height: 40vh;
+                margin-bottom: 40px;
+            }
+
+            .look-page {
+                padding: 20px;
+            }
+
+            .products-grid {
+                gap: 16px;
+            }
+
+            .product-item {
+                grid-template-columns: 60px 1fr;
+                gap: 16px;
+                padding: 12px;
+            }
+
+            .product-thumbnail {
+                width: 60px;
+                height: 60px;
+            }
+
+            .page-nav {
+                display: none;
+            }
+        }
+
+        /* Touch-friendly hover effects for mobile */
+        @media (hover: none) {
+            .product-item:hover {
+                transform: none;
+            }
+
+            .look-image:hover {
+                transform: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Loading your lookbook...</p>
-        </div>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading">
+        <div class="loader"></div>
+        <div class="loading-text">Loading Lookbook</div>
+    </div>
 
-        <div id="error" class="error" style="display: none;">
-            <h2>Oops! Something went wrong</h2>
-            <p id="error-message"></p>
-        </div>
+    <!-- Error Screen -->
+    <div class="error-screen" id="error">
+        <div class="error-icon">✕</div>
+        <div class="error-title">Lookbook Not Found</div>
+        <div class="error-message" id="error-message"></div>
+    </div>
 
-        <div id="content" style="display: none;">
-            <div class="header">
-                <h1 id="link-title">✨ Your Curated Lookbook</h1>
-                <div class="client-name" id="link-description"></div>
-                <div class="date" id="created-date"></div>
-            </div>
+    <!-- Main Content -->
+    <div class="container" id="content">
+        <!-- Pages will be dynamically inserted here -->
+    </div>
 
-            <div id="cover-image-container" class="cover-image-container" style="display: none;">
-                <img id="cover-image" class="cover-image" alt="Cover Image" />
-            </div>
+    <!-- Page Navigation -->
+    <div class="page-nav" id="page-nav"></div>
 
-            <div class="looks-grid" id="looks-grid"></div>
-
-            <div class="footer">
-                <p>Created with AI Studio · Professional Fashion Curation</p>
-            </div>
-        </div>
+    <!-- Footer -->
+    <div class="footer">
+        <div>AI Studio</div>
+        <div id="footer-date"></div>
     </div>
 
     <script>
         // Extract link ID from URL
-        function getLinkIdFromUrl() {
-            const path = window.location.pathname;
-            const parts = path.split('/');
-            return parts[parts.length - 1];
+        const pathParts = window.location.pathname.split('/');
+        const linkId = pathParts[pathParts.length - 1];
+
+        if (!linkId) {
+            showError('Invalid link URL. Please check the URL and try again.');
+        } else {
+            loadSharedLink(linkId);
         }
 
-        // Format date
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-        }
+        // API Configuration
+        const API_BASE = window.location.origin + '/api/v1';
 
-        // Format price
-        function formatPrice(price) {
-            if (!price) return 'Price on request';
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(price);
-        }
-
-        // Load shared link data
-        async function loadSharedLink() {
-            const linkId = getLinkIdFromUrl();
-            
-            if (!linkId) {
-                showError('Invalid link URL');
-                return;
-            }
-
+        async function loadSharedLink(linkId) {
             try {
-                // Determine the API endpoint based on current URL
-                const baseUrl = window.location.origin;
-                const apiPath = window.location.pathname.includes('/AIStudio/') 
-                    ? '/AIStudio/api/v1/links/shared/' 
-                    : '/api/v1/links/shared/';
-                
-                const response = await fetch(`${baseUrl}${apiPath}${linkId}`, {
+                const response = await fetch(`${API_BASE}/links/shared/${linkId}`, {
                     headers: {
-                        'ngrok-skip-browser-warning': 'true'
+                        'ngrok-skip-browser-warning': '1'
                     }
                 });
 
                 if (!response.ok) {
-                    throw new Error('Link not found or has been deleted');
+                    throw new Error('Lookbook not found or has been removed');
                 }
 
                 const data = await response.json();
@@ -361,89 +574,224 @@
             }
         }
 
-        // Display shared link content
         function displaySharedLink(data) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('content').style.display = 'block';
+            const container = document.getElementById('content');
+            const pageNav = document.getElementById('page-nav');
+            
+            // Create cover page
+            const coverPage = createCoverPage(data);
+            container.appendChild(coverPage);
 
-            // Set header info
-            document.getElementById('link-title').textContent = data.title || 'Your Curated Lookbook';
-            document.getElementById('link-description').textContent = data.description || '';
-            document.getElementById('created-date').textContent = `Created on ${formatDate(data.createdAt)}`;
+            // Create navigation dot for cover
+            const coverDot = createNavDot(0);
+            pageNav.appendChild(coverDot);
 
-            // Display cover image if it exists
-            if (data.coverImageUrl) {
-                const coverContainer = document.getElementById('cover-image-container');
-                const coverImage = document.getElementById('cover-image');
-                coverImage.src = data.coverImageUrl;
-                coverImage.onerror = function() {
-                    coverContainer.style.display = 'none';
-                };
-                coverContainer.style.display = 'block';
-            }
-
-            // Render looks
-            const looksGrid = document.getElementById('looks-grid');
-            looksGrid.innerHTML = '';
-
-            if (!data.looks || data.looks.length === 0) {
-                looksGrid.innerHTML = '<p style="color: white; text-align: center; grid-column: 1/-1;">No looks found in this collection.</p>';
-                return;
-            }
-
+            // Create look pages
             data.looks.forEach((look, index) => {
-                const lookCard = document.createElement('div');
-                lookCard.className = 'look-card';
-                
-                let productsHtml = '';
-                if (look.products && look.products.length > 0) {
-                    productsHtml = `
-                        <div class="products-section">
-                            <div class="products-title">Products in this look</div>
+                const lookPage = createLookPage(look, index + 1, data.looks.length);
+                container.appendChild(lookPage);
+
+                // Create navigation dot
+                const navDot = createNavDot(index + 1);
+                pageNav.appendChild(navDot);
+            });
+
+            // Set footer date
+            document.getElementById('footer-date').textContent = formatDate(data.createdAt);
+
+            // Hide loading, show content
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('fade-out');
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    container.classList.add('show');
+                    updateActiveNav();
+                }, 500);
+            }, 800);
+
+            // Set up scroll listener for navigation
+            container.addEventListener('scroll', updateActiveNav);
+
+            // Set up navigation click handlers
+            setupNavigation();
+        }
+
+        function createCoverPage(data) {
+            const page = document.createElement('div');
+            page.className = 'cover-page';
+            page.dataset.page = '0';
+
+            let coverImageHTML = '';
+            if (data.coverImageUrl) {
+                coverImageHTML = `<img src="${data.coverImageUrl}" alt="Cover" class="cover-image" onerror="this.style.display='none'">`;
+            }
+
+            page.innerHTML = `
+                ${coverImageHTML}
+                <h1 class="cover-title">${escapeHtml(data.title)}</h1>
+                ${data.description ? `<p class="cover-description">${escapeHtml(data.description)}</p>` : ''}
+                <div class="scroll-hint" onclick="scrollToNextPage()">
+                    <div class="scroll-hint-text">Explore</div>
+                    <div class="scroll-arrow"></div>
+                </div>
+            `;
+
+            return page;
+        }
+
+        function createLookPage(look, lookNumber, totalLooks) {
+            const page = document.createElement('div');
+            page.className = 'look-page';
+            page.dataset.page = lookNumber.toString();
+
+            const productsHTML = look.products && look.products.length > 0 
+                ? `
+                    <div class="products-section">
+                        <div class="products-title">Featured Products</div>
+                        <div class="products-grid">
                             ${look.products.map(product => `
                                 <div class="product-item">
-                                    <img src="${product.thumbnailUrl}" 
-                                         alt="${product.name}" 
+                                    <img src="${product.thumbnailUrl || product.thumbnail}" 
+                                         alt="${escapeHtml(product.name)}" 
                                          class="product-thumbnail"
-                                         onerror="this.style.display='none'">
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23333%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E'">
                                     <div class="product-info">
-                                        <div class="product-name">${product.name || 'Untitled Product'}</div>
-                                        ${product.designer ? `<div class="product-designer">${product.designer}</div>` : ''}
-                                        <div class="product-price">${formatPrice(product.price)}</div>
-                                        ${product.productUrl ? `<a href="${product.productUrl}" target="_blank" class="product-link">View Product →</a>` : ''}
+                                        <div class="product-name">${escapeHtml(product.name)}</div>
+                                        ${product.details ? `<div class="product-details">${escapeHtml(product.details)}</div>` : ''}
+                                        ${product.sku ? `<div class="product-sku">${escapeHtml(product.sku)}</div>` : ''}
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
-                    `;
-                }
-
-                lookCard.innerHTML = `
-                    <img src="${look.generatedImageUrl}" 
-                         alt="${look.title || 'Look ' + (index + 1)}" 
-                         class="look-image"
-                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22400%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22400%22 height=%22400%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
-                    <div class="look-content">
-                        <div class="look-title">${look.title || 'Look ' + (index + 1)}</div>
-                        ${look.notes ? `<div class="look-notes">${look.notes}</div>` : ''}
-                        ${productsHtml}
                     </div>
-                `;
+                ` 
+                : '';
 
-                looksGrid.appendChild(lookCard);
+            page.innerHTML = `
+                <div class="look-content">
+                    <div class="look-image-container">
+                        <img src="${look.generatedImageUrl}" 
+                             alt="${escapeHtml(look.title)}" 
+                             class="look-image"
+                             onerror="this.style.opacity='0.3'">
+                    </div>
+                    <div class="look-details">
+                        <div class="look-number">Look ${lookNumber.toString().padStart(2, '0')} / ${totalLooks.toString().padStart(2, '0')}</div>
+                        <h2 class="look-title">${escapeHtml(look.title)}</h2>
+                        ${look.notes ? `<p class="look-notes">${escapeHtml(look.notes)}</p>` : ''}
+                        ${productsHTML}
+                    </div>
+                </div>
+            `;
+
+            return page;
+        }
+
+        function createNavDot(index) {
+            const dot = document.createElement('div');
+            dot.className = 'nav-dot';
+            dot.dataset.page = index.toString();
+            dot.addEventListener('click', () => scrollToPage(index));
+            return dot;
+        }
+
+        function setupNavigation() {
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+                    e.preventDefault();
+                    scrollToNextPage();
+                } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    scrollToPrevPage();
+                }
+            });
+
+            // Touch swipe navigation
+            let touchStartY = 0;
+            let touchEndY = 0;
+
+            document.addEventListener('touchstart', (e) => {
+                touchStartY = e.changedTouches[0].screenY;
+            });
+
+            document.addEventListener('touchend', (e) => {
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipe();
+            });
+
+            function handleSwipe() {
+                const swipeThreshold = 50;
+                if (touchStartY - touchEndY > swipeThreshold) {
+                    scrollToNextPage();
+                } else if (touchEndY - touchStartY > swipeThreshold) {
+                    scrollToPrevPage();
+                }
+            }
+        }
+
+        function scrollToPage(pageIndex) {
+            const container = document.getElementById('content');
+            const pages = container.querySelectorAll('.cover-page, .look-page');
+            if (pages[pageIndex]) {
+                pages[pageIndex].scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function scrollToNextPage() {
+            const container = document.getElementById('content');
+            const currentScroll = container.scrollTop;
+            const vh = window.innerHeight;
+            const currentPage = Math.round(currentScroll / vh);
+            scrollToPage(currentPage + 1);
+        }
+
+        function scrollToPrevPage() {
+            const container = document.getElementById('content');
+            const currentScroll = container.scrollTop;
+            const vh = window.innerHeight;
+            const currentPage = Math.round(currentScroll / vh);
+            scrollToPage(Math.max(0, currentPage - 1));
+        }
+
+        function updateActiveNav() {
+            const container = document.getElementById('content');
+            const currentScroll = container.scrollTop;
+            const vh = window.innerHeight;
+            const currentPage = Math.round(currentScroll / vh);
+
+            document.querySelectorAll('.nav-dot').forEach((dot, index) => {
+                if (index === currentPage) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
             });
         }
 
-        // Show error message
         function showError(message) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error-message').textContent = message;
+            document.getElementById('loading').classList.add('fade-out');
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-message').textContent = message;
+                document.getElementById('error').classList.add('show');
+            }, 500);
         }
 
-        // Load on page load
-        window.addEventListener('DOMContentLoaded', loadSharedLink);
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
-
