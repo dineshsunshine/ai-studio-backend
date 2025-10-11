@@ -58,16 +58,18 @@ async def migrate_links_columns(
         has_client_phone = column_exists('links', 'client_phone')
         has_title = column_exists('links', 'title')
         has_description = column_exists('links', 'description')
+        has_cover_image_url = column_exists('links', 'cover_image_url')
         
         result["current_state"] = {
             "has_client_name": has_client_name,
             "has_client_phone": has_client_phone,
             "has_title": has_title,
-            "has_description": has_description
+            "has_description": has_description,
+            "has_cover_image_url": has_cover_image_url
         }
         
-        # Check if migration already done
-        if has_title and has_description and not has_client_name and not has_client_phone:
+        # Check if migration already done (all new columns exist, no old columns)
+        if has_title and has_description and has_cover_image_url and not has_client_name and not has_client_phone:
             result["status"] = "already_migrated"
             result["message"] = "✅ Migration already completed! Database is up to date."
             return result
