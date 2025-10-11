@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, inspect
 from sqlalchemy.ext.declarative import declarative_base
