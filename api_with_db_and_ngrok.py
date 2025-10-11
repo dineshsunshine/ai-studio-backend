@@ -250,6 +250,23 @@ async def root():
     }
 
 
+@app.get("/l/{link_id}", response_class=HTMLResponse)
+async def serve_shared_link(link_id: str):
+    """
+    Serve the shared link viewer HTML page.
+    This displays a beautiful UI for clients to view the lookbook.
+    """
+    from fastapi.responses import FileResponse
+    import os
+    
+    html_path = os.path.join(os.path.dirname(__file__), "frontend", "shared_link.html")
+    
+    if not os.path.exists(html_path):
+        raise HTTPException(status_code=404, detail="Shared link viewer not found")
+    
+    return FileResponse(html_path, media_type="text/html")
+
+
 @app.get("/debug/openapi-test")
 async def test_openapi_generation():
     """Debug endpoint to test OpenAPI schema generation"""
