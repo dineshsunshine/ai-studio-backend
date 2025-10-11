@@ -205,7 +205,7 @@ async def list_links(
     links = query.order_by(Link.created_at.desc()).offset(skip).limit(limit).all()
     
     return LinkListResponse(
-        links=[LinkResponse(**serialize_link(link)) for link in links],
+        links=[LinkResponse(**serialize_link(link, db)) for link in links],
         total=total,
         skip=skip,
         limit=limit
