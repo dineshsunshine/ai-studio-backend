@@ -74,13 +74,7 @@ async def migrate_links_columns(
             result["message"] = "✅ Migration already completed! Database is up to date."
             return result
         
-        # Check if we can migrate
-        if not has_client_name or not has_client_phone:
-            result["status"] = "error"
-            result["message"] = "❌ Old columns not found. Database might be in unexpected state."
-            return result
-        
-        # Perform migration
+        # Perform migration (handle partial migrations gracefully)
         result["status"] = "migrating"
         
         # Step 1: Rename client_name to title
@@ -111,13 +105,36 @@ async def migrate_links_columns(
                 result["steps"].append(f"⚠️  Could not alter description: {str(e)}")
         
         # Step 4: Add cover_image_url column if it doesn't exist
-        has_cover_image = column_exists('links', 'cover_image_url')
-        if not has_cover_image:
+        if not has_cover_image_url:
             db.execute(text("ALTER TABLE links ADD COLUMN cover_image_url VARCHAR NULL"))
             db.commit()
             result["steps"].append("✅ Added cover_image_url column")
         else:
             result["steps"].append("⏭️  cover_image_url column already exists")
+        
+        # Step 5: Check and add position column to link_looks if missing
+        has_position = False
+        try:
+            from sqlalchemy import inspect as sqla_inspect
+            inspector = sqla_inspect(db.bind)
+            link_looks_cols = [col['name'] for col in inspector.get_columns('link_looks')]
+            has_position = 'position' in link_looks_cols
+        except Exception:
+            has_position = False
+        
+        if not has_position:
+            try:
+                # Add position column with default value
+                db.execute(text("ALTER TABLE link_looks ADD COLUMN position INTEGER NOT NULL DEFAULT 0"))
+                db.commit()
+                result["steps"].append("✅ Added position column to link_looks")
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate column" in str(e).lower():
+                    result["steps"].append("⏭️  position column already exists in link_looks")
+                else:
+                    result["steps"].append(f"⚠️  Could not add position column: {str(e)}")
+        else:
+            result["steps"].append("⏭️  position column already exists in link_looks")
         
         # Verify final state
         has_title_final = column_exists('links', 'title')
@@ -125,9 +142,12 @@ async def migrate_links_columns(
         has_client_name_final = column_exists('links', 'client_name')
         has_client_phone_final = column_exists('links', 'client_phone')
         
+        has_cover_image_url_final = column_exists('links', 'cover_image_url')
+        
         result["final_state"] = {
             "has_title": has_title_final,
             "has_description": has_description_final,
+            "has_cover_image_url": has_cover_image_url_final,
             "has_client_name": has_client_name_final,
             "has_client_phone": has_client_phone_final
         }
