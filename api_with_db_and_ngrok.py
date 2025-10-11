@@ -24,7 +24,7 @@ from pyngrok import ngrok, conf
 
 # Import database setup and models from app
 from app.core.database import engine, Base, get_db as app_get_db
-from app.models import user, access_request, user_settings, default_settings_model, model, look, product
+from app.models import user, access_request, user_settings, default_settings_model, model, look, product, link
 
 # Create all tables
 def create_db_tables():
@@ -236,14 +236,16 @@ async def root():
             "User Management",
             "Access Request Approval",
             "Role-Based Access Control",
-            "Models & Looks Management"
+            "Models & Looks Management",
+            "Shareable Links (Collections)"
         ],
         "docs": "/docs",
         "api_endpoints": {
             "authentication": "/api/v1/auth",
             "admin": "/api/v1/admin",
             "models": "/api/v1/models",
-            "looks": "/api/v1/looks"
+            "looks": "/api/v1/looks",
+            "links": "/api/v1/links"
         }
     }
 
@@ -275,6 +277,7 @@ async def health_check(db: Session = Depends(get_db)):
     from app.models.access_request import AccessRequest
     from app.models.model import Model
     from app.models.look import Look
+    from app.models.link import Link
     
     try:
         # Test database connection by counting records
@@ -282,10 +285,11 @@ async def health_check(db: Session = Depends(get_db)):
         request_count = db.query(AccessRequest).count()
         model_count = db.query(Model).count()
         look_count = db.query(Look).count()
+        link_count = db.query(Link).count()
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
-        user_count = request_count = model_count = look_count = 0
+        user_count = request_count = model_count = look_count = link_count = 0
     
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
@@ -295,7 +299,8 @@ async def health_check(db: Session = Depends(get_db)):
             "users": user_count,
             "access_requests": request_count,
             "models": model_count,
-            "looks": look_count
+            "looks": look_count,
+            "links": link_count
         },
         "message": "AI Studio Backend is running! ✅"
     }
