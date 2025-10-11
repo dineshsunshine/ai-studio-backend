@@ -753,17 +753,25 @@
 
         async function loadSharedLink(linkId) {
             try {
+                console.log('Loading shared link:', linkId);
+                console.log('API URL:', `${API_BASE}/links/shared/${linkId}`);
+                
                 const response = await fetch(`${API_BASE}/links/shared/${linkId}`, {
                     headers: {
                         'ngrok-skip-browser-warning': '1'
                     }
                 });
 
+                console.log('Response status:', response.status);
+                
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Response error:', errorText);
                     throw new Error('Lookbook not found or has been removed');
                 }
 
                 const data = await response.json();
+                console.log('Data received:', data);
                 displaySharedLink(data);
             } catch (error) {
                 console.error('Error loading shared link:', error);
