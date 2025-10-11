@@ -69,7 +69,7 @@ def serialize_link(link: Link, db: Session = None) -> dict:
             """),
             {"link_id": link.id}
         )
-        ordered_look_ids = [row[0] for row in result]
+        ordered_look_ids = [str(row[0]) for row in result]  # Ensure strings
         # Sort looks based on the ordered IDs
         looks_dict = {str(look.id): look for look in link.looks}
         ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
@@ -408,7 +408,7 @@ async def get_shared_link(
         """),
         {"link_id": link.id}
     )
-    ordered_look_ids = [row[0] for row in result]
+    ordered_look_ids = [str(row[0]) for row in result]  # Ensure strings
     
     # Sort looks based on the ordered IDs
     looks_dict = {str(look.id): look for look in link.looks}
