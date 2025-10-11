@@ -250,18 +250,6 @@ async def root():
     }
 
 
-@app.get("/l/{link_id}")
-async def redirect_to_shared_link(link_id: str):
-    """
-    Short URL redirect endpoint for shared links.
-    Redirects /l/{link_id} to the frontend with the link_id parameter.
-    """
-    from fastapi.responses import RedirectResponse
-    # For now, redirect to the API endpoint that returns the data
-    # In production, this should redirect to your frontend with the link_id
-    return RedirectResponse(url=f"/api/v1/links/shared/{link_id}")
-
-
 @app.get("/debug/openapi-test")
 async def test_openapi_generation():
     """Debug endpoint to test OpenAPI schema generation"""
