@@ -1,0 +1,89 @@
+PROMPT FOR FRONTEND DEVELOPER: Shared Link Viewer
+
+You're absolutely right about the architecture! I've fixed the backend. Here's what you need to do:
+
+====================
+BACKEND IS READY
+====================
+
+The backend provides ONE API endpoint:
+
+GET /api/v1/links/shared/{linkId}
+
+Returns:
+{
+  "linkId": "AB12CD34",
+  "clientName": "John Doe",
+  "looks": [
+    {
+      "id": "...",
+      "title": "...",
+      "generatedImageUrl": "...",
+      "products": [...]
+    }
+  ],
+  "createdAt": "2025-10-11T12:00:00Z"
+}
+
+====================
+WHAT YOU NEED TO DO
+====================
+
+1. Add a route in React Router for /AIStudio/l/:linkId
+
+2. Create a SharedLinkViewer component that:
+   - Extracts linkId from URL using useParams()
+   - Calls GET /api/v1/links/shared/{linkId}
+   - Renders a beautiful UI showing all the looks
+
+3. Example code:
+
+```jsx
+import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+
+function SharedLinkViewer() {
+  const { linkId } = useParams();
+  const [linkData, setLinkData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/v1/links/shared/${linkId}`, {
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setLinkData(data);
+        setLoading(false);
+      });
+  }, [linkId]);
+
+  if (loading) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h1>{linkData.clientName}'s Collection</h1>
+      {linkData.looks.map(look => (
+        // Render each look beautifully
+      ))}
+    </div>
+  );
+}
+```
+
+4. Update your router:
+
+```jsx
+<Routes>
+  <Route path="/AIStudio/l/:linkId" element={<SharedLinkViewer />} />
+</Routes>
+```
+
+====================
+THAT'S IT!
+====================
+
+The backend no longer redirects or returns JSON directly. Your React app will handle the routing and make the API call to get the data.
+
+Your dev server (Vite/CRA) already handles SPA routing, so it will work immediately.
+
