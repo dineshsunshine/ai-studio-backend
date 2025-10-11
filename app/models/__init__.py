@@ -5,6 +5,7 @@ from app.models.default_settings_model import DefaultSettingsModel
 from app.models.model import Model
 from app.models.look import Look
 from app.models.product import Product
+from app.models.link import Link
 
 __all__ = [
     "User", 
@@ -16,5 +17,6 @@ __all__ = [
     "DefaultSettingsModel",
     "Model",
     "Look",
-    "Product"
+    "Product",
+    "Link"
 ]

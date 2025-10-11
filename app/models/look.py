@@ -52,8 +52,9 @@ class Look(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship to products
+    # Relationships
     products = relationship("Product", back_populates="look", cascade="all, delete-orphan")
+    links = relationship("Link", secondary="link_looks", back_populates="looks")
 
     def __repr__(self):
         return f"<Look(id='{self.id}', title='{self.title}', user_id='{self.user_id}')>"

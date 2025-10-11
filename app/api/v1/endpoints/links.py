@@ -1,0 +1,380 @@
+"""
+API endpoints for Links (shareable collections of looks)
+"""
+import random
+import string
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from app.core.database import get_db
+from app.core.auth import get_current_active_user
+from app.models.user import User, UserRole
+from app.models.link import Link, link_looks
+from app.models.look import Look
+from app.schemas.link import (
+    LinkCreate,
+    LinkUpdate,
+    LinkResponse,
+    LinkListResponse,
+    SharedLinkResponse
+)
+from app.schemas.look import LookResponse
+from app.schemas.product import ProductResponse
+import os
+
+router = APIRouter()
+
+
+def generate_link_id(length: int = 8) -> str:
+    """Generate a unique alphanumeric link ID"""
+    # Use uppercase letters and numbers for readability
+    chars = string.ascii_uppercase + string.digits
+    # Exclude confusing characters: 0, O, 1, I, L
+    chars = chars.replace('0', '').replace('O', '').replace('1', '').replace('I', '').replace('L', '')
+    return ''.join(random.choices(chars, k=length))
+
+
+def get_short_url(link_id: str) -> str:
+    """Generate the full short URL for a link"""
+    # Check if we're on production (Render) or development (ngrok/local)
+    public_url = os.getenv("BASE_URL") or os.getenv("NGROK_PUBLIC_URL", "http://localhost:8000")
+    
+    # Clean up URL
+    public_url = public_url.rstrip('/')
+    
+    # Return short URL
+    return f"{public_url}/l/{link_id}"
+
+
+def serialize_link(link: Link) -> dict:
+    """Serialize a Link object to dictionary"""
+    return {
+        "id": str(link.id),
+        "linkId": link.link_id,
+        "clientName": link.client_name,
+        "clientPhone": link.client_phone,
+        "shortUrl": get_short_url(link.link_id),
+        "looks": [
+            {
+                "id": str(look.id),
+                "title": look.title,
+                "notes": look.notes,
+                "generatedImageUrl": look.generated_image_url,
+                "products": [
+                    {
+                        "id": str(product.id),
+                        "sku": product.sku,
+                        "name": product.name,
+                        "designer": product.designer,
+                        "price": product.price,
+                        "productUrl": product.product_url,
+                        "thumbnailUrl": product.thumbnail_url,
+                        "createdAt": product.created_at.isoformat()
+                    }
+                    for product in look.products
+                ],
+                "createdAt": look.created_at.isoformat(),
+                "updatedAt": look.updated_at.isoformat()
+            }
+            for look in link.looks
+        ],
+        "createdAt": link.created_at.isoformat(),
+        "updatedAt": link.updated_at.isoformat()
+    }
+
+
+@router.post("/", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
+async def create_link(
+    link_data: LinkCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new shareable link with a collection of looks.
+    
+    **Authentication required.**
+    
+    - Users can only include their own looks in links
+    - Generates a unique alphanumeric link ID
+    - Returns the short URL to share with clients
+    
+    Request Body:
+    - clientName: Client's name (required)
+    - clientPhone: Client's phone number (optional)
+    - lookIds: Array of look UUIDs to include (required, min 1)
+    
+    Returns the created link with short URL.
+    """
+    # Verify all looks exist and belong to the user
+    looks = db.query(Look).filter(
+        Look.id.in_(link_data.lookIds),
+        Look.user_id == str(current_user.id)
+    ).all()
+    
+    if len(looks) != len(link_data.lookIds):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more looks not found or do not belong to you"
+        )
+    
+    # Generate unique link ID
+    link_id = generate_link_id()
+    # Ensure uniqueness
+    while db.query(Link).filter(Link.link_id == link_id).first():
+        link_id = generate_link_id()
+    
+    # Create link
+    new_link = Link(
+        user_id=str(current_user.id),
+        client_name=link_data.clientName,
+        client_phone=link_data.clientPhone,
+        link_id=link_id
+    )
+    
+    # Add looks to link
+    new_link.looks = looks
+    
+    db.add(new_link)
+    db.commit()
+    db.refresh(new_link)
+    
+    return LinkResponse(**serialize_link(new_link))
+
+
+@router.get("/", response_model=LinkListResponse)
+async def list_links(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List all links created by the authenticated user.
+    
+    **Authentication required.**
+    
+    - Users see only their own links
+    - Supports pagination
+    
+    Query Parameters:
+    - skip: Number of records to skip (default: 0)
+    - limit: Maximum number of records to return (default: 100, max: 1000)
+    
+    Returns paginated list of links with their looks.
+    """
+    # Get user's links
+    query = db.query(Link).filter(Link.user_id == str(current_user.id))
+    
+    total = query.count()
+    links = query.order_by(Link.created_at.desc()).offset(skip).limit(limit).all()
+    
+    return LinkListResponse(
+        links=[LinkResponse(**serialize_link(link)) for link in links],
+        total=total,
+        skip=skip,
+        limit=limit
+    )
+
+
+@router.get("/{link_id}", response_model=LinkResponse)
+async def get_link(
+    link_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a single link by its database ID.
+    
+    **Authentication required.**
+    
+    - Users can only view their own links
+    - Admins can view any link
+    
+    Path Parameters:
+    - link_id: UUID of the link
+    
+    Returns the complete link with all looks and products.
+    """
+    link = db.query(Link).filter(Link.id == link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found"
+        )
+    
+    # Check ownership (unless admin)
+    if current_user.role != UserRole.ADMIN and link.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this link"
+        )
+    
+    return LinkResponse(**serialize_link(link))
+
+
+@router.patch("/{link_id}", response_model=LinkResponse)
+async def update_link(
+    link_id: str,
+    link_data: LinkUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a link's client information or looks.
+    
+    **Authentication required.**
+    
+    - Users can only update their own links
+    - Can update client name, phone, or the collection of looks
+    
+    Path Parameters:
+    - link_id: UUID of the link to update
+    
+    Request Body (all optional):
+    - clientName: Updated client name
+    - clientPhone: Updated phone number
+    - lookIds: Updated array of look UUIDs
+    
+    Returns the updated link.
+    """
+    link = db.query(Link).filter(Link.id == link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found"
+        )
+    
+    # Check ownership
+    if link.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this link"
+        )
+    
+    # Update client information
+    if link_data.clientName is not None:
+        link.client_name = link_data.clientName
+    
+    if link_data.clientPhone is not None:
+        link.client_phone = link_data.clientPhone
+    
+    # Update looks if provided
+    if link_data.lookIds is not None:
+        # Verify all looks exist and belong to the user
+        looks = db.query(Look).filter(
+            Look.id.in_(link_data.lookIds),
+            Look.user_id == str(current_user.id)
+        ).all()
+        
+        if len(looks) != len(link_data.lookIds):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="One or more looks not found or do not belong to you"
+            )
+        
+        link.looks = looks
+    
+    db.commit()
+    db.refresh(link)
+    
+    return LinkResponse(**serialize_link(link))
+
+
+@router.delete("/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_link(
+    link_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a link.
+    
+    **Authentication required.**
+    
+    - Users can only delete their own links
+    - Deleting a link does NOT delete the looks (only the link itself)
+    
+    Path Parameters:
+    - link_id: UUID of the link to delete
+    
+    Returns 204 No Content on success.
+    """
+    link = db.query(Link).filter(Link.id == link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found"
+        )
+    
+    # Check ownership
+    if link.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to delete this link"
+        )
+    
+    db.delete(link)
+    db.commit()
+    
+    return None
+
+
+@router.get("/shared/{alphanumeric_link_id}", response_model=SharedLinkResponse)
+async def get_shared_link(
+    alphanumeric_link_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a link by its alphanumeric link ID (for sharing with clients).
+    
+    **No authentication required** - this is a public endpoint.
+    
+    Path Parameters:
+    - alphanumeric_link_id: The short alphanumeric ID (e.g., "AB12CD34")
+    
+    Returns the link with all looks and products for client viewing.
+    
+    This endpoint is designed to be called from the short URL:
+    https://yourdomain.com/l/{alphanumeric_link_id}
+    """
+    link = db.query(Link).filter(Link.link_id == alphanumeric_link_id).first()
+    
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Link not found or has been deleted"
+        )
+    
+    return SharedLinkResponse(
+        linkId=link.link_id,
+        clientName=link.client_name,
+        looks=[
+            LookResponse(
+                id=str(look.id),
+                title=look.title,
+                notes=look.notes,
+                generatedImageUrl=look.generated_image_url,
+                products=[
+                    ProductResponse(
+                        id=str(product.id),
+                        sku=product.sku,
+                        name=product.name,
+                        designer=product.designer,
+                        price=product.price,
+                        productUrl=product.product_url,
+                        thumbnailUrl=product.thumbnail_url,
+                        createdAt=product.created_at.isoformat()
+                    )
+                    for product in look.products
+                ],
+                createdAt=look.created_at.isoformat(),
+                updatedAt=look.updated_at.isoformat()
+            )
+            for look in link.looks
+        ],
+        createdAt=link.created_at.isoformat()
+    )
+
