@@ -37,13 +37,20 @@ def generate_link_id(length: int = 8) -> str:
 def get_short_url(link_id: str) -> str:
     """Generate the full short URL for a link"""
     # Check if we're on production (Render) or development (ngrok/local)
-    public_url = os.getenv("BASE_URL") or os.getenv("NGROK_PUBLIC_URL", "http://localhost:8000")
+    base_url = os.getenv("BASE_URL")
+    ngrok_url = os.getenv("NGROK_PUBLIC_URL")
     
-    # Clean up URL
-    public_url = public_url.rstrip('/')
-    
-    # Return short URL
-    return f"{public_url}/l/{link_id}"
+    if base_url:
+        # Production (Render) - no prefix needed
+        public_url = base_url.rstrip('/')
+        return f"{public_url}/l/{link_id}"
+    elif ngrok_url:
+        # Development (ngrok) - needs /AIStudio prefix for reverse proxy
+        public_url = ngrok_url.rstrip('/')
+        return f"{public_url}/AIStudio/l/{link_id}"
+    else:
+        # Local fallback
+        return f"http://localhost:8000/l/{link_id}"
 
 
 def serialize_link(link: Link) -> dict:
