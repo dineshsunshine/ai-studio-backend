@@ -108,6 +108,15 @@ async def migrate_links_columns(
             else:
                 result["steps"].append(f"⚠️  Could not alter description: {str(e)}")
         
+        # Step 4: Add cover_image_url column if it doesn't exist
+        has_cover_image = column_exists('links', 'cover_image_url')
+        if not has_cover_image:
+            db.execute(text("ALTER TABLE links ADD COLUMN cover_image_url VARCHAR NULL"))
+            db.commit()
+            result["steps"].append("✅ Added cover_image_url column")
+        else:
+            result["steps"].append("⏭️  cover_image_url column already exists")
+        
         # Verify final state
         has_title_final = column_exists('links', 'title')
         has_description_final = column_exists('links', 'description')
