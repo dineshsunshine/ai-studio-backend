@@ -149,11 +149,12 @@ async def approve_access_request(
             status=UserStatus.ACTIVE
         )
         db.add(new_user)
+        db.flush()  # Flush to get the generated ID
     
     # Update access request
     access_request.status = RequestStatus.APPROVED
     access_request.reviewed_at = datetime.utcnow()
-    access_request.reviewed_by = current_admin.id
+    access_request.reviewed_by = str(current_admin.id)  # Convert to string for consistency
     
     # Create user settings with defaults if they don't exist
     user_id_str = str(new_user.id)
