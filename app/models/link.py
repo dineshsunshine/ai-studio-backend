@@ -25,9 +25,9 @@ class Link(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     
-    # Client information
-    client_name = Column(String(255), nullable=False)
-    client_phone = Column(String(50), nullable=True)
+    # Link information
+    title = Column(String(255), nullable=False)
+    description = Column(String(1000), nullable=True)
     
     # Unique alphanumeric identifier for sharing (e.g., "AB12CD34")
     link_id = Column(String(16), unique=True, nullable=False, index=True)
@@ -44,5 +44,5 @@ class Link(Base):
     user = relationship("User", foreign_keys=[user_id])
     
     def __repr__(self):
-        return f"<Link(id={self.id}, link_id={self.link_id}, client={self.client_name})>"
+        return f"<Link(id={self.id}, link_id={self.link_id}, title={self.title})>"
 

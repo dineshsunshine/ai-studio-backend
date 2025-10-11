@@ -283,8 +283,8 @@
 
         <div id="content" style="display: none;">
             <div class="header">
-                <h1>✨ Your Curated Lookbook</h1>
-                <div class="client-name" id="client-name"></div>
+                <h1 id="link-title">✨ Your Curated Lookbook</h1>
+                <div class="client-name" id="link-description"></div>
                 <div class="date" id="created-date"></div>
             </div>
 
@@ -367,7 +367,8 @@
             document.getElementById('content').style.display = 'block';
 
             // Set header info
-            document.getElementById('client-name').textContent = `For ${data.clientName}`;
+            document.getElementById('link-title').textContent = data.title || 'Your Curated Lookbook';
+            document.getElementById('link-description').textContent = data.description || '';
             document.getElementById('created-date').textContent = `Created on ${formatDate(data.createdAt)}`;
 
             // Display cover image if it exists

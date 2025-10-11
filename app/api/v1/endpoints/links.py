@@ -59,8 +59,8 @@ def serialize_link(link: Link) -> dict:
     return {
         "id": str(link.id),
         "linkId": link.link_id,
-        "clientName": link.client_name,
-        "clientPhone": link.client_phone,
+        "title": link.title,
+        "description": link.description,
         "coverImageUrl": link.cover_image_url,
         "shortUrl": get_short_url(link.link_id),
         "looks": [
@@ -108,8 +108,8 @@ async def create_link(
     - Returns the short URL to share with clients
     
     Request Body:
-    - clientName: Client's name (required)
-    - clientPhone: Client's phone number (optional)
+    - title: Link title (required)
+    - description: Link description (optional)
     - lookIds: Array of look UUIDs to include (required, min 1)
     
     Returns the created link with short URL.
@@ -135,8 +135,8 @@ async def create_link(
     # Create link
     new_link = Link(
         user_id=str(current_user.id),
-        client_name=link_data.clientName,
-        client_phone=link_data.clientPhone,
+        title=link_data.title,
+        description=link_data.description,
         link_id=link_id
     )
     
@@ -241,8 +241,8 @@ async def update_link(
     - link_id: UUID of the link to update
     
     Request Body (all optional):
-    - clientName: Updated client name
-    - clientPhone: Updated phone number
+    - title: Updated link title
+    - description: Updated link description
     - lookIds: Updated array of look UUIDs
     
     Returns the updated link.
@@ -262,12 +262,12 @@ async def update_link(
             detail="You don't have permission to update this link"
         )
     
-    # Update client information
-    if link_data.clientName is not None:
-        link.client_name = link_data.clientName
+    # Update link information
+    if link_data.title is not None:
+        link.title = link_data.title
     
-    if link_data.clientPhone is not None:
-        link.client_phone = link_data.clientPhone
+    if link_data.description is not None:
+        link.description = link_data.description
     
     # Update looks if provided
     if link_data.lookIds is not None:
@@ -359,7 +359,8 @@ async def get_shared_link(
     
     return SharedLinkResponse(
         linkId=link.link_id,
-        clientName=link.client_name,
+        title=link.title,
+        description=link.description,
         coverImageUrl=link.cover_image_url,
         looks=[
             LookResponse(
