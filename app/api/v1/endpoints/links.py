@@ -174,7 +174,7 @@ async def create_link(
     db.commit()
     db.refresh(new_link)
     
-    return LinkResponse(**serialize_link(new_link))
+    return LinkResponse(**serialize_link(new_link, db))
 
 
 @router.get("/", response_model=LinkListResponse)
@@ -246,7 +246,7 @@ async def get_link(
             detail="You don't have permission to access this link"
         )
     
-    return LinkResponse(**serialize_link(link))
+    return LinkResponse(**serialize_link(link, db))
 
 
 @router.patch("/{link_id}", response_model=LinkResponse)
@@ -327,7 +327,7 @@ async def update_link(
     db.commit()
     db.refresh(link)
     
-    return LinkResponse(**serialize_link(link))
+    return LinkResponse(**serialize_link(link, db))
 
 
 @router.delete("/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -396,6 +396,24 @@ async def get_shared_link(
             detail="Link not found or has been deleted"
         )
     
+    # Get looks ordered by position
+    from sqlalchemy import text
+    result = db.execute(
+        text("""
+            SELECT l.id, ll.position 
+            FROM looks l
+            JOIN link_looks ll ON l.id = ll.look_id
+            WHERE ll.link_id = :link_id
+            ORDER BY ll.position
+        """),
+        {"link_id": link.id}
+    )
+    ordered_look_ids = [row[0] for row in result]
+    
+    # Sort looks based on the ordered IDs
+    looks_dict = {str(look.id): look for look in link.looks}
+    ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
+    
     return SharedLinkResponse(
         linkId=link.link_id,
         title=link.title,
@@ -423,7 +441,7 @@ async def get_shared_link(
                 createdAt=look.created_at.isoformat(),
                 updatedAt=look.updated_at.isoformat()
             )
-            for look in link.looks
+            for look in ordered_looks
         ],
         createdAt=link.created_at.isoformat()
     )
@@ -502,7 +520,7 @@ async def upload_cover_image(
         db.commit()
         db.refresh(link)
         
-        return LinkResponse(**serialize_link(link))
+        return LinkResponse(**serialize_link(link, db))
         
     except Exception as e:
         db.rollback()
@@ -562,5 +580,5 @@ async def remove_cover_image(
     db.commit()
     db.refresh(link)
     
-    return LinkResponse(**serialize_link(link))
+    return LinkResponse(**serialize_link(link, db))
 
