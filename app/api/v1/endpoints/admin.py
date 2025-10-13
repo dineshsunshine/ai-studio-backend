@@ -11,6 +11,9 @@ from app.core.default_settings import get_current_defaults
 from app.models.user import User, UserRole, UserStatus
 from app.models.access_request import AccessRequest, RequestStatus
 from app.models.user_settings import UserSettings
+from app.models.model import Model
+from app.models.look import Look
+from app.models.link import Link
 from app.schemas.auth import (
     AccessRequestListResponse,
     AccessRequestResponse,

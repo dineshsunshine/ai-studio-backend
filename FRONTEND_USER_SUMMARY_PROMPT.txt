@@ -1,0 +1,153 @@
+USER SUMMARY INTEGRATION PROMPT
+================================
+
+TASK: Add "Summary" button to user management that shows user activity details.
+
+LOCATION:
+---------
+User Management page - in each user's row or actions menu, add a "Summary" button.
+
+API ENDPOINT:
+-------------
+GET /api/v1/admin/users/{user_id}/summary
+
+Authentication: Required (Admin only)
+Header: Authorization: Bearer {admin-jwt-token}
+
+REQUEST:
+--------
+No request body needed. Just call with the user's ID in the URL path.
+
+Example:
+GET https://your-api-url/api/v1/admin/users/abc123-user-id-here/summary
+
+RESPONSE FORMAT:
+----------------
+{
+  "user": {
+    "id": "abc123-user-id",
+    "email": "user@example.com",
+    "fullName": "John Doe",
+    "profilePicture": "https://...",
+    "role": "user",
+    "status": "approved",
+    "createdAt": "2024-01-15T10:30:00",
+    "lastLogin": "2024-10-13T14:20:00"
+  },
+  "statistics": {
+    "totalModels": 12,
+    "totalLooks": 8,
+    "totalLinks": 3,
+    "lastActivity": "2024-10-13T14:20:00"
+  },
+  "recentActivity": {
+    "models": [
+      {
+        "id": "model-id-1",
+        "name": "Model Name",
+        "imageUrl": "https://...",
+        "createdAt": "2024-10-13T14:20:00"
+      }
+      // ... up to 5 recent models
+    ],
+    "looks": [
+      {
+        "id": "look-id-1",
+        "title": "Look Title",
+        "generatedImageUrl": "https://...",
+        "productsCount": 3,
+        "createdAt": "2024-10-12T10:15:00"
+      }
+      // ... up to 5 recent looks
+    ],
+    "links": [
+      {
+        "id": "link-id-1",
+        "linkId": "AB12CD34",
+        "title": "Winter Collection",
+        "looksCount": 5,
+        "shortUrl": "https://.../l/AB12CD34",
+        "createdAt": "2024-10-11T09:00:00"
+      }
+      // ... up to 5 recent links
+    ]
+  }
+}
+
+INTEGRATION STEPS:
+------------------
+1. Add "Summary" button/icon next to each user in the user management table
+
+2. When clicked, call the API:
+   - GET /api/v1/admin/users/{user_id}/summary
+   - Include Authorization header with admin token
+
+3. Display the response data in a modal/drawer/side panel showing:
+   - User Info section:
+     * Email
+     * Full Name
+     * Role badge
+     * Status badge
+     * Account created date
+     * Last login date
+   
+   - Statistics section:
+     * Total Models: {totalModels}
+     * Total Looks: {totalLooks}
+     * Total Links: {totalLinks}
+     * Last Activity: {lastActivity}
+   
+   - Recent Activity section (3 tabs or sections):
+     * Recent Models (show up to 5):
+       - Model name
+       - Thumbnail image
+       - Created date
+     
+     * Recent Looks (show up to 5):
+       - Look title
+       - Generated image
+       - Number of products
+       - Created date
+     
+     * Recent Links (show up to 5):
+       - Link title
+       - Link ID
+       - Number of looks
+       - Short URL (make it clickable)
+       - Created date
+
+4. Handle loading state while API call is in progress
+
+5. Handle errors (user not found, permission denied, network error)
+
+6. Add a "Close" button to dismiss the summary view
+
+IMPORTANT NOTES:
+----------------
+- This endpoint is ADMIN ONLY. Regular users cannot access it.
+- The API returns the 5 most recent items of each type.
+- All dates are in ISO 8601 format - format them nicely for display.
+- Short URLs for links are clickable - open in new tab.
+- If a user has no activity in a category, the array will be empty [].
+
+ERROR HANDLING:
+---------------
+- 403 Forbidden: User is not an admin
+- 404 Not Found: User ID doesn't exist
+- 500 Server Error: Backend issue
+
+Display appropriate error messages for each case.
+
+EXAMPLE FLOW:
+-------------
+1. Admin clicks "Summary" button for user "john@example.com"
+2. Frontend makes API call with john's user ID
+3. Show loading spinner
+4. API returns data with 12 models, 8 looks, 3 links
+5. Display modal/panel with all the information organized
+6. Admin reviews the user's activity
+7. Admin clicks "Close" to dismiss
+
+That's it! The backend handles all the data aggregation and counting.
+You just need to call the API and display the results nicely.
+
