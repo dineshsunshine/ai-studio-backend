@@ -417,3 +417,111 @@ async def delete_user(
     
     return {"message": "User deleted successfully"}
 
+
+
+@router.get("/users/{user_id}/summary")
+async def get_user_summary(
+    user_id: str,
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Get comprehensive activity summary for a specific user.
+    
+    Returns:
+    - User basic info (email, name, role, status)
+    - Total models created
+    - Total looks created
+    - Total links generated
+    - Recent activity timestamps
+    - Account statistics
+    
+    This is useful for admin dashboards to quickly see a user's activity.
+    """
+    
+    # Get the user
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Get activity counts
+    models_count = db.query(Model).filter(Model.user_id == user_id).count()
+    looks_count = db.query(Look).filter(Look.user_id == user_id).count()
+    links_count = db.query(Link).filter(Link.user_id == user_id).count()
+    
+    # Get recent items (last 5 of each)
+    recent_models = db.query(Model).filter(Model.user_id == user_id)\
+        .order_by(Model.created_at.desc()).limit(5).all()
+    recent_looks = db.query(Look).filter(Look.user_id == user_id)\
+        .order_by(Look.created_at.desc()).limit(5).all()
+    recent_links = db.query(Link).filter(Link.user_id == user_id)\
+        .order_by(Link.created_at.desc()).limit(5).all()
+    
+    # Get most recent activity timestamp
+    last_model_created = recent_models[0].created_at if recent_models else None
+    last_look_created = recent_looks[0].created_at if recent_looks else None
+    last_link_created = recent_links[0].created_at if recent_links else None
+    
+    # Find most recent activity
+    activity_dates = [d for d in [last_model_created, last_look_created, last_link_created] if d]
+    last_activity = max(activity_dates) if activity_dates else None
+    
+    # Determine short URL based on environment
+    from app.core.config import settings
+    is_prod = getattr(settings, 'IS_PRODUCTION', False)
+    base_url = "https://ai-studio-backend-ijkp.onrender.com" if is_prod else "https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio"
+    
+    return {
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "fullName": user.full_name,
+            "profilePicture": user.profile_picture,
+            "role": user.role.value,
+            "status": user.status.value,
+            "createdAt": user.created_at.isoformat(),
+            "lastLogin": user.last_login.isoformat() if user.last_login else None,
+        },
+        "statistics": {
+            "totalModels": models_count,
+            "totalLooks": looks_count,
+            "totalLinks": links_count,
+            "lastActivity": last_activity.isoformat() if last_activity else None,
+        },
+        "recentActivity": {
+            "models": [
+                {
+                    "id": str(m.id),
+                    "name": m.name,
+                    "imageUrl": m.image_url,
+                    "createdAt": m.created_at.isoformat()
+                }
+                for m in recent_models
+            ],
+            "looks": [
+                {
+                    "id": str(l.id),
+                    "title": l.title,
+                    "generatedImageUrl": l.generated_image_url,
+                    "productsCount": len(l.products),
+                    "createdAt": l.created_at.isoformat()
+                }
+                for l in recent_looks
+            ],
+            "links": [
+                {
+                    "id": str(link.id),
+                    "linkId": link.link_id,
+                    "title": link.title,
+                    "looksCount": len(link.looks),
+                    "shortUrl": f"{base_url}/l/{link.link_id}",
+                    "createdAt": link.created_at.isoformat()
+                }
+                for link in recent_links
+            ]
+        }
+    }
