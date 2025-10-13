@@ -462,9 +462,16 @@ async def get_user_summary(
         .order_by(Link.created_at.desc()).limit(5).all()
     
     # Get most recent activity timestamp
-    last_model_created = recent_models[0].created_at if recent_models else None
-    last_look_created = recent_looks[0].created_at if recent_looks else None
-    last_link_created = recent_links[0].created_at if recent_links else None
+    # Convert all datetimes to naive (remove timezone info) for comparison
+    def to_naive(dt):
+        if dt is None:
+            return None
+        # Remove timezone info if present
+        return dt.replace(tzinfo=None) if hasattr(dt, 'tzinfo') and dt.tzinfo else dt
+    
+    last_model_created = to_naive(recent_models[0].created_at) if recent_models else None
+    last_look_created = to_naive(recent_looks[0].created_at) if recent_looks else None
+    last_link_created = to_naive(recent_links[0].created_at) if recent_links else None
     
     # Find most recent activity
     activity_dates = [d for d in [last_model_created, last_look_created, last_link_created] if d]
