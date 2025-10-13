@@ -477,10 +477,17 @@ async def get_user_summary(
     activity_dates = [d for d in [last_model_created, last_look_created, last_link_created] if d]
     last_activity = max(activity_dates) if activity_dates else None
     
-    # Determine short URL based on environment
-    from app.core.config import settings
-    is_prod = getattr(settings, 'IS_PRODUCTION', False)
-    base_url = "https://ai-studio-backend-ijkp.onrender.com" if is_prod else "https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio"
+    # Helper function to get short URL (same logic as links.py)
+    def get_link_short_url(link_id: str) -> str:
+        from app.core.config import settings
+        ngrok_url = getattr(settings, 'NGROK_PUBLIC_URL', None)
+        
+        # If ngrok URL is set, we're in development - add /AIStudio prefix
+        if ngrok_url:
+            return f"{ngrok_url}/l/{link_id}"
+        else:
+            # Production - no prefix needed
+            return f"https://ai-studio-backend-ijkp.onrender.com/l/{link_id}"
     
     return {
         "user": {
@@ -525,7 +532,7 @@ async def get_user_summary(
                     "linkId": link.link_id,
                     "title": link.title,
                     "looksCount": len(link.looks),
-                    "shortUrl": f"{base_url}/l/{link.link_id}",
+                    "shortUrl": get_link_short_url(link.link_id),
                     "createdAt": link.created_at.isoformat()
                 }
                 for link in recent_links
