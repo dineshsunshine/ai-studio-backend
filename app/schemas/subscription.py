@@ -20,16 +20,22 @@ class SubscriptionInfoResponse(BaseModel):
 
 class ConsumeTokensRequest(BaseModel):
     """Request to consume tokens"""
-    amount: int = Field(..., ge=1, description="Number of tokens to consume")
-    description: Optional[str] = Field(None, description="What the tokens are being used for")
+    operation: str = Field(..., description="Operation name (e.g., 'text_to_image', 'multi_modal')")
+    description: Optional[str] = Field(None, description="Additional context about the operation")
 
 
 class ConsumeTokensResponse(BaseModel):
     """Response after consuming tokens"""
     success: bool
+    cost: int
     availableTokens: int
     consumedTokens: int
     message: str
+
+
+class OperationCostsResponse(BaseModel):
+    """Response with all operation costs"""
+    costs: dict = Field(..., description="Dictionary of operation names to token costs")
 
 
 class AdminUpdateSubscriptionRequest(BaseModel):

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.core.database import get_db
 from app.core.auth import get_current_active_user
+from app.core.token_costs import get_operation_cost, get_all_costs, is_valid_operation
 from app.models.user import User
 from app.models.subscription import UserSubscription, TokenTransaction, SubscriptionTier, TIER_TOKEN_LIMITS
 from app.schemas.subscription import (
@@ -15,7 +16,8 @@ from app.schemas.subscription import (
     TokenHistoryResponse,
     TokenTransactionResponse,
     SubscriptionTiersResponse,
-    SubscriptionTierInfo
+    SubscriptionTierInfo,
+    OperationCostsResponse
 )
 import uuid
 from datetime import datetime, timedelta
@@ -84,41 +86,74 @@ async def consume_tokens(
     db: Session = Depends(get_db)
 ):
     """
-    Consume tokens for the current user.
+    Consume tokens for the current user based on operation type.
     
-    Frontend should call this endpoint when user performs an action
-    that requires tokens (e.g., AI generation, image processing).
+    Frontend should call this endpoint BEFORE performing an AI operation.
+    The backend determines the token cost based on the operation type.
+    
+    Request body:
+    - operation: Operation name (e.g., 'text_to_image', 'multi_modal')
+    - description: Optional context about the operation
     
     Returns:
     - success: True if tokens were consumed, False if insufficient
+    - cost: Number of tokens this operation costs
     - availableTokens: Remaining token balance
     - consumedTokens: Total consumed this period
     - message: Status message
+    
+    Example:
+    ```
+    POST /api/v1/subscription/consume
+    {
+        "operation": "text_to_image",
+        "description": "Generated model: Fashion Model A"
+    }
+    ```
     """
+    # Validate operation
+    if not is_valid_operation(request.operation):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid operation: {request.operation}. Valid operations: {list(get_all_costs().keys())}"
+        )
+    
+    # Get operation cost
+    try:
+        cost = get_operation_cost(request.operation)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    
     subscription = get_or_create_subscription(str(current_user.id), db)
     
     # Check if user has enough tokens
-    if not subscription.has_tokens(request.amount):
+    if not subscription.has_tokens(cost):
         return ConsumeTokensResponse(
             success=False,
+            cost=cost,
             availableTokens=subscription.available_tokens,
             consumedTokens=subscription.consumed_tokens,
-            message=f"Insufficient tokens. You need {request.amount} but have {subscription.available_tokens}."
+            message=f"Insufficient tokens. Operation '{request.operation}' costs {cost} tokens but you have {subscription.available_tokens}."
         )
     
     # Record balance before
     balance_before = subscription.available_tokens
     
     # Consume tokens
-    subscription.consume_tokens(request.amount)
+    subscription.consume_tokens(cost)
     
     # Create transaction record
+    description = request.description or f"{request.operation} operation"
     transaction = TokenTransaction(
         id=str(uuid.uuid4()),
+        subscription_id=subscription.id,
         user_id=str(current_user.id),
         type="consumption",
-        amount=-request.amount,  # Negative for consumption
-        description=request.description or "Token consumption",
+        amount=-cost,  # Negative for consumption
+        description=description,
         balance_before=balance_before if not subscription.is_unlimited() else -1,
         balance_after=subscription.available_tokens if not subscription.is_unlimited() else -1,
         admin_id=None
@@ -129,9 +164,10 @@ async def consume_tokens(
     
     return ConsumeTokensResponse(
         success=True,
+        cost=cost,
         availableTokens=subscription.available_tokens,
         consumedTokens=subscription.consumed_tokens,
-        message=f"Successfully consumed {request.amount} tokens."
+        message=f"Successfully consumed {cost} tokens for '{request.operation}' operation."
     )
 
 
@@ -208,4 +244,30 @@ async def get_subscription_tiers():
         ))
     
     return SubscriptionTiersResponse(tiers=tiers)
+
+
+@router.get("/costs", response_model=OperationCostsResponse)
+async def get_operation_costs():
+    """
+    Get token costs for all AI operations.
+    
+    Returns a dictionary of operation names to their token costs.
+    Frontend can use this to display costs to users before they perform operations.
+    
+    Example response:
+    ```json
+    {
+        "costs": {
+            "text_to_image": 10,
+            "multi_modal": 20,
+            "multi_modal_light": 8,
+            "image_to_text": 5,
+            "text_to_text": 3
+        }
+    }
+    ```
+    
+    No authentication required - costs are public information.
+    """
+    return OperationCostsResponse(costs=get_all_costs())
 
