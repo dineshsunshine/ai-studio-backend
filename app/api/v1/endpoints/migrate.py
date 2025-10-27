@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db, engine
+from app.core.database import get_db, engine, Base
 from app.models.user import User, UserRole
 from app.core.auth import get_current_active_user
 
@@ -206,4 +206,87 @@ async def check_migration_status(
         "needs_migration": needs_migration,
         "status": "✅ Up to date" if migrated else "⚠️ Migration needed"
     }
+
+
+@router.post("/create-subscription-tables")
+async def create_subscription_tables(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Create subscription tables (user_subscriptions, token_transactions).
+    
+    This endpoint is safe to call multiple times - it will only create tables if they don't exist.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": []
+    }
+    
+    try:
+        # Check if tables already exist
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        has_user_subscriptions = 'user_subscriptions' in existing_tables
+        has_token_transactions = 'token_transactions' in existing_tables
+        
+        if has_user_subscriptions and has_token_transactions:
+            result["status"] = "already_exists"
+            result["message"] = "✅ Subscription tables already exist"
+            result["tables"] = {
+                "user_subscriptions": "exists",
+                "token_transactions": "exists"
+            }
+            return result
+        
+        # Import subscription models to register them with SQLAlchemy
+        from app.models.subscription import UserSubscription, TokenTransaction
+        
+        # Create only subscription tables
+        result["steps"].append("Importing subscription models...")
+        
+        # Create tables using SQLAlchemy metadata
+        result["steps"].append("Creating subscription tables...")
+        
+        # Get subscription tables from metadata
+        subscription_tables = []
+        for table_name, table in Base.metadata.tables.items():
+            if table_name in ['user_subscriptions', 'token_transactions']:
+                subscription_tables.append(table)
+        
+        # Create tables
+        for table in subscription_tables:
+            table.create(bind=engine, checkfirst=True)
+            result["steps"].append(f"✅ Created table: {table.name}")
+        
+        # Verify tables were created
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        result["status"] = "success"
+        result["message"] = "✅ Subscription tables created successfully"
+        result["tables"] = {
+            "user_subscriptions": "created" if 'user_subscriptions' in existing_tables else "failed",
+            "token_transactions": "created" if 'token_transactions' in existing_tables else "failed"
+        }
+        
+        return result
+        
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
 
