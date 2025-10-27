@@ -38,3 +38,4 @@ def downgrade():
     op.drop_index('idx_models_created_at', 'models')
     op.drop_table('models')
 
+

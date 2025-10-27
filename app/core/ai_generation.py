@@ -121,3 +121,4 @@ class AIGenerationService:
 # Global AI generation service instance
 ai_generation_service = AIGenerationService()
 
+

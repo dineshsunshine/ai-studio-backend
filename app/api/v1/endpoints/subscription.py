@@ -149,7 +149,6 @@ async def consume_tokens(
     description = request.description or f"{request.operation} operation"
     transaction = TokenTransaction(
         id=str(uuid.uuid4()),
-        subscription_id=subscription.id,
         user_id=str(current_user.id),
         type="consumption",
         amount=-cost,  # Negative for consumption

@@ -286,3 +286,4 @@ You'll be notified, but you won't be charged unless you upgrade to a paid plan.
 
 🚀 Ready to set up? Just add those environment variables on Render!
 
+

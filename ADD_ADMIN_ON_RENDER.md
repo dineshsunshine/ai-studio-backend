@@ -206,3 +206,4 @@ db.close()
 - All admins have full access to admin endpoints (`/api/v1/admin/*`)
 - Regular users will have `role = 'user'` instead of `'admin'`
 
+

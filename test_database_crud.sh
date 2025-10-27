@@ -158,3 +158,4 @@ echo "💾 Database: Check ai_studio.db file for persistence"
 echo "📚 API Docs: $BASE_URL/docs"
 echo ""
 
+

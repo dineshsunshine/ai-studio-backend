@@ -140,8 +140,15 @@ class StorageService:
                 f.write(file_data.read())
             
             # Return PUBLIC URL (using ngrok or base URL)
-            # Priority: NGROK_PUBLIC_URL > BASE_URL > localhost
-            public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
+            # Try to load from config settings first, then environment variables
+            try:
+                from app.core.config import settings
+                public_url = getattr(settings, 'NGROK_PUBLIC_URL', None)
+                if not public_url:
+                    public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
+            except:
+                # Fallback to environment variable
+                public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
             
             # Determine if we're using ngrok (has /AIStudio prefix) or production (no prefix)
             if "ngrok" in public_url or "localhost:8888" in public_url:

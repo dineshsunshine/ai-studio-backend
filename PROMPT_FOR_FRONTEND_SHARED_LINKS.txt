@@ -87,3 +87,4 @@ The backend no longer redirects or returns JSON directly. Your React app will ha
 
 Your dev server (Vite/CRA) already handles SPA routing, so it will work immediately.
 
+

@@ -1,0 +1,134 @@
+=================================================================
+ADMIN DEFAULT SETTINGS - NEW FEATURE
+=================================================================
+
+📋 WHAT CHANGED:
+
+The admin can now push default settings to ALL existing users, 
+not just new users.
+
+=================================================================
+🔧 NEW API OPTIONS:
+=================================================================
+
+OPTION 1: Update defaults + Apply to all users in one go
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Endpoint: PUT /api/v1/admin/defaults?apply_to_all=true
+
+Request:
+PUT /api/v1/admin/defaults?apply_to_all=true
+Headers:
+  Authorization: Bearer {admin_jwt_token}
+  Content-Type: application/json
+
+Body:
+{
+  "defaultTheme": "light",
+  "defaultToolSettings": {
+    "lookCreator": {...},
+    "copywriter": {...},
+    "finishingStudio": {...},
+    "modelManager": {...}
+  }
+}
+
+Response:
+{
+  "defaultTheme": "light",
+  "defaultToolSettings": {...},
+  "updatedAt": "2025-10-17T15:20:00Z",
+  "updatedBy": "admin-user-id",
+  "affectedUsers": 5  // <-- Number of users updated
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION 2: Update defaults WITHOUT applying to existing users
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Endpoint: PUT /api/v1/admin/defaults
+         (or PUT /api/v1/admin/defaults?apply_to_all=false)
+
+This is the default behavior - only affects new users.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION 3: Apply current defaults to all users (separate action)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Endpoint: POST /api/v1/admin/defaults/apply-to-all
+
+Use this if admin wants to push existing default settings 
+to all users without changing the defaults.
+
+Request:
+POST /api/v1/admin/defaults/apply-to-all
+Headers:
+  Authorization: Bearer {admin_jwt_token}
+
+Response:
+{
+  "status": "success",
+  "message": "Applied default settings to 5 users",
+  "affectedUsers": 5,
+  "appliedSettings": {
+    "defaultTheme": "light",
+    "defaultToolSettings": {...}
+  }
+}
+
+=================================================================
+🎨 FRONTEND IMPLEMENTATION SUGGESTIONS:
+=================================================================
+
+1. ADD A CHECKBOX:
+   When admin updates default settings, show:
+   
+   [ ] Apply these settings to all existing users
+   
+   ⚠️  Warning: This will overwrite any custom settings 
+       users have configured.
+
+2. OR ADD A SEPARATE BUTTON:
+   After updating defaults, show:
+   
+   [Apply to All Users] button
+   
+   With confirmation dialog:
+   "This will override all users' custom settings. Continue?"
+
+3. SHOW AFFECTED COUNT:
+   After applying, display:
+   "✅ Settings applied to 5 users"
+
+=================================================================
+📝 IMPORTANT NOTES:
+=================================================================
+
+1. By default (apply_to_all=false):
+   - Only new users get the new defaults
+   - Existing users keep their settings
+   
+2. With apply_to_all=true:
+   - ALL users immediately get the new settings
+   - Overrides any customizations users made
+   
+3. Users can still customize after:
+   - Users can modify their settings anytime
+   - They're just starting from the new defaults
+
+=================================================================
+🔍 TESTING:
+=================================================================
+
+Test locally:
+http://localhost:8000/api/v1/docs
+
+Test production:
+https://ai-studio-backend-ijkp.onrender.com/api/v1/docs
+
+Both endpoints are now available in Swagger UI.
+
+=================================================================
+

@@ -162,3 +162,4 @@ frontend/
 
 *The frontend is completely standalone - no installation, no dependencies, just open and use!*
 
+

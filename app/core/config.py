@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # Ngrok
     NGROK_AUTH_TOKEN: str = ""
     NGROK_DOMAIN: str = ""
+    NGROK_PUBLIC_URL: str = ""  # Full public URL (e.g., https://domain.ngrok-free.dev/AIStudio)
     
     model_config = SettingsConfigDict(
         env_file=".env",

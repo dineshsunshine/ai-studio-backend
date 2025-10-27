@@ -175,3 +175,4 @@ class CloudinaryStorage:
 # Global instance
 cloudinary_storage = CloudinaryStorage()
 
+

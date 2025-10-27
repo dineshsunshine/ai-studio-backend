@@ -73,3 +73,4 @@ echo "Server PID: $SERVER_PID (running in background)"
 echo "Server logs: tail -f server.log"
 echo ""
 
+

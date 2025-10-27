@@ -411,3 +411,4 @@ For issues or questions:
 - Review error responses for debugging
 - Ensure base64 images are properly formatted
 
+

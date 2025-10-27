@@ -1,12 +1,13 @@
 """
 Admin endpoints for managing default settings
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.auth import require_admin
 from app.core.default_settings import get_default_settings, get_default_tool_settings, DEFAULT_THEME
 from app.models.user import User
+from app.models.user_settings import UserSettings
 from app.models.default_settings_model import DefaultSettingsModel
 from app.schemas.default_settings_schema import DefaultSettingsData, DefaultSettingsResponse
 
@@ -58,28 +59,30 @@ async def get_admin_defaults(
     )
 
 
-@router.put("/defaults", response_model=DefaultSettingsResponse)
+@router.put("/defaults")
 async def update_admin_defaults(
     settings: DefaultSettingsData,
+    apply_to_all: bool = Query(False, description="Apply these settings to all existing users"),
     current_admin: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
-    Update default settings for new users (admin only).
+    Update default settings (admin only).
     
     This will change:
     - Default theme for new users
     - Default tool settings for new users
     - Settings that users get when they reset
     
-    IMPORTANT: This does NOT affect existing users' settings.
-    Only new users and reset operations will use these defaults.
+    Query Parameters:
+        apply_to_all: If true, applies these settings to ALL existing users immediately.
+                     If false (default), only affects new users and reset operations.
     
     Body:
         DefaultSettingsData: New default theme and tool settings
     
     Returns:
-        DefaultSettingsResponse: Updated defaults with metadata
+        Updated defaults with metadata and count of affected users
     """
     defaults = get_or_create_default_settings(db)
     
@@ -91,12 +94,64 @@ async def update_admin_defaults(
     db.commit()
     db.refresh(defaults)
     
-    return DefaultSettingsResponse(
-        defaultTheme=defaults.default_theme,
-        defaultToolSettings=defaults.default_tool_settings,
-        updatedAt=defaults.updated_at.isoformat(),
-        updatedBy=defaults.updated_by
-    )
+    affected_users = 0
+    
+    # If apply_to_all is true, update all existing users' settings
+    if apply_to_all:
+        all_user_settings = db.query(UserSettings).all()
+        for user_setting in all_user_settings:
+            user_setting.theme = defaults.default_theme
+            user_setting.tool_settings = defaults.default_tool_settings
+            affected_users += 1
+        db.commit()
+    
+    response_data = {
+        "defaultTheme": defaults.default_theme,
+        "defaultToolSettings": defaults.default_tool_settings,
+        "updatedAt": defaults.updated_at.isoformat(),
+        "updatedBy": defaults.updated_by,
+        "affectedUsers": affected_users
+    }
+    
+    return response_data
+
+
+@router.post("/defaults/apply-to-all")
+async def apply_defaults_to_all_users(
+    current_admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Apply current default settings to ALL existing users (admin only).
+    
+    This will overwrite all users' settings with the current default settings.
+    Use this carefully as it will override any customizations users have made.
+    
+    Returns:
+        Count of affected users and default settings applied
+    """
+    defaults = get_or_create_default_settings(db)
+    
+    # Update all existing users' settings
+    all_user_settings = db.query(UserSettings).all()
+    affected_users = 0
+    
+    for user_setting in all_user_settings:
+        user_setting.theme = defaults.default_theme
+        user_setting.tool_settings = defaults.default_tool_settings
+        affected_users += 1
+    
+    db.commit()
+    
+    return {
+        "status": "success",
+        "message": f"Applied default settings to {affected_users} users",
+        "affectedUsers": affected_users,
+        "appliedSettings": {
+            "defaultTheme": defaults.default_theme,
+            "defaultToolSettings": defaults.default_tool_settings
+        }
+    }
 
 
 @router.post("/defaults/reset", response_model=DefaultSettingsResponse)
@@ -129,4 +184,5 @@ async def reset_admin_defaults(
         updatedAt=defaults.updated_at.isoformat(),
         updatedBy=defaults.updated_by
     )
+
 

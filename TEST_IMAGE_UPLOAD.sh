@@ -74,3 +74,4 @@ echo "   curl -X DELETE \"http://localhost:8000/api/v1/models/$MODEL_ID\""
 
 echo -e "\n✅ Test complete!"
 
+

@@ -31,3 +31,4 @@ class DefaultSettingsModel(Base):
     def __repr__(self):
         return f"<DefaultSettings(theme='{self.default_theme}', updated={self.updated_at})>"
 
+
