@@ -1,7 +1,7 @@
 """
 Subscription and Token Management Schemas
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -44,9 +44,16 @@ class AdminUpdateSubscriptionRequest(BaseModel):
 
 
 class AdminTopupTokensRequest(BaseModel):
-    """Admin request to top-up user's tokens"""
-    amount: int = Field(..., ge=1, description="Number of tokens to add")
-    description: Optional[str] = Field(None, description="Reason for top-up")
+    """Admin request to adjust user's tokens (top-up or deduct)"""
+    amount: int = Field(..., description="Number of tokens to add (positive) or deduct (negative). Cannot be zero.")
+    description: Optional[str] = Field(None, description="Reason for adjustment")
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v):
+        if v == 0:
+            raise ValueError('Amount cannot be zero')
+        return v
 
 
 class TokenTransactionResponse(BaseModel):

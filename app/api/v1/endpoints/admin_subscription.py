@@ -191,10 +191,13 @@ async def topup_user_tokens(
     db: Session = Depends(get_db)
 ):
     """
-    Top-up a user's tokens (admin only).
+    Adjust a user's tokens (admin only).
     
-    Adds the specified amount of tokens to user's available balance.
-    This is in addition to their regular monthly allocation.
+    - Positive amount: Adds tokens (top-up)
+    - Negative amount: Deducts tokens (penalty/adjustment)
+    
+    The adjustment is applied to both available and total tokens.
+    For deductions, available tokens cannot go below 0.
     """
     # Get user
     user = db.query(User).filter(User.id == user_id).first()
@@ -212,27 +215,48 @@ async def topup_user_tokens(
             detail="User has no subscription"
         )
     
-    # Don't allow top-up for unlimited tier
+    # Don't allow adjustment for unlimited tier
     if subscription.is_unlimited():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot top-up tokens for unlimited tier"
+            detail="Cannot adjust tokens for unlimited tier"
         )
     
     # Record balance before
     balance_before = subscription.available_tokens
     
-    # Add tokens
+    # Check if deduction would result in negative balance
+    if request.amount < 0:
+        new_available = subscription.available_tokens + request.amount
+        if new_available < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot deduct {abs(request.amount)} tokens. User only has {subscription.available_tokens} available tokens."
+            )
+    
+    # Apply adjustment
     subscription.available_tokens += request.amount
     subscription.total_tokens += request.amount
+    
+    # Determine transaction type and description
+    is_topup = request.amount > 0
+    transaction_type = "topup" if is_topup else "admin_deduction"
+    
+    if request.description:
+        description = request.description
+    else:
+        if is_topup:
+            description = f"Admin top-up of {request.amount} tokens"
+        else:
+            description = f"Admin deduction of {abs(request.amount)} tokens"
     
     # Create transaction record
     transaction = TokenTransaction(
         id=str(uuid.uuid4()),
         user_id=user_id,
-        type="topup",
+        type=transaction_type,
         amount=request.amount,
-        description=request.description or f"Admin top-up of {request.amount} tokens",
+        description=description,
         balance_before=balance_before,
         balance_after=subscription.available_tokens,
         admin_id=str(current_admin.id)
@@ -242,9 +266,10 @@ async def topup_user_tokens(
     db.commit()
     db.refresh(subscription)
     
+    action = "Added" if is_topup else "Deducted"
     return {
         "status": "success",
-        "message": f"Added {request.amount} tokens to user's account",
+        "message": f"{action} {abs(request.amount)} tokens {'to' if is_topup else 'from'} user's account",
         "subscription": {
             "availableTokens": subscription.available_tokens,
             "totalTokens": subscription.total_tokens
