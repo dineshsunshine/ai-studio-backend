@@ -66,7 +66,7 @@ def init_db():
     """
     from app.models import (
         user, access_request, user_settings, 
-        default_settings_model, model, look, product
+        default_settings_model, model, look, product, subscription
     )
     
     Base.metadata.create_all(bind=engine)
