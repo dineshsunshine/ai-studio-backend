@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -49,12 +49,6 @@ class Look(Base):
     notes = Column(Text, nullable=True)
     generated_image_url = Column(String, nullable=False)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)  # Owner of the look
-    
-    # Lookbook status
-    # False = Draft/History only (generated but not explicitly saved)
-    # True = Saved to lookbook (user explicitly saved it)
-    is_in_lookbook = Column(Boolean, default=False, nullable=False, index=True)
-    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

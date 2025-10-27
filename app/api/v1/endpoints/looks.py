@@ -127,7 +127,6 @@ async def create_look(
             title=new_look.title,
             notes=new_look.notes,
             generatedImageUrl=new_look.generated_image_url,
-            isInLookbook=new_look.is_in_lookbook,
             products=[
                 {
                     "id": str(p.id),
@@ -159,31 +158,23 @@ async def create_look(
 @router.get("/", response_model=LookListResponse)
 async def list_looks(
     all: bool = Query(False, description="Show all looks (admin only)"),
-    in_lookbook_only: bool = Query(False, description="Show only looks saved to lookbook", alias="inLookbookOnly"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    List looks with pagination and filtering.
+    List looks with pagination.
     
     - Regular users see only their own looks
     - Admins can use ?all=true to see all looks
-    - Use ?inLookbookOnly=true to see only saved looks (lookbook)
-    - Use ?inLookbookOnly=false to see all looks (history)
     
     Query Parameters:
     - all: Show all looks (admin only)
-    - inLookbookOnly: Filter to show only lookbook-saved looks (default: false)
     - skip: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: 100, max: 1000)
     
     Returns a paginated list of looks with their products.
-    
-    Examples:
-    - GET /api/v1/looks/?inLookbookOnly=true  → Only saved looks (lookbook)
-    - GET /api/v1/looks/?inLookbookOnly=false → All looks (history)
     """
     # Enforce max limit
     if limit > 1000:
@@ -195,10 +186,6 @@ async def list_looks(
     if not (all and current_user.role == UserRole.ADMIN):
         query = query.filter(DBLook.user_id == str(current_user.id))
     
-    # Apply lookbook filter if requested
-    if in_lookbook_only:
-        query = query.filter(DBLook.is_in_lookbook == True)
-    
     total = query.count()
     looks = query.order_by(DBLook.created_at.desc()).offset(skip).limit(limit).all()
     
@@ -209,7 +196,6 @@ async def list_looks(
             title=look.title,
             notes=look.notes,
             generatedImageUrl=look.generated_image_url,
-            isInLookbook=look.is_in_lookbook,
             products=[
                 {
                     "id": str(p.id),
@@ -272,7 +258,6 @@ async def get_look(
         title=look.title,
         notes=look.notes,
         generatedImageUrl=look.generated_image_url,
-        isInLookbook=look.is_in_lookbook,
         products=[
             {
                 "id": str(p.id),
@@ -338,7 +323,6 @@ async def update_look(
             title=look.title,
             notes=look.notes,
             generatedImageUrl=look.generated_image_url,
-            isInLookbook=look.is_in_lookbook,
             products=[
                 {
                     "id": str(p.id),
@@ -360,81 +344,6 @@ async def update_look(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update look: {str(e)}"
-        )
-
-
-@router.patch("/{look_id}/save-to-lookbook", response_model=LookResponse)
-async def save_to_lookbook(
-    look_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Mark a look as saved to lookbook.
-    
-    This is a lightweight operation that updates the is_in_lookbook status.
-    The look must belong to the current user (or user must be admin).
-    
-    **Authentication required.**
-    
-    Path Parameters:
-    - look_id: UUID of the look to save
-    
-    Returns the updated look with isInLookbook=true.
-    """
-    # Find look
-    look = db.query(DBLook).filter(DBLook.id == look_id).first()
-    
-    if not look:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Look not found"
-        )
-    
-    # Check ownership (unless admin)
-    if current_user.role != UserRole.ADMIN and look.user_id != str(current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to modify this look"
-        )
-    
-    # Update status
-    look.is_in_lookbook = True
-    
-    try:
-        db.commit()
-        db.refresh(look)
-        
-        print(f"✅ Look {look_id} saved to lookbook by user {current_user.email}")
-        
-        return LookResponse(
-            id=str(look.id),
-            title=look.title,
-            notes=look.notes,
-            generatedImageUrl=look.generated_image_url,
-            isInLookbook=look.is_in_lookbook,
-            products=[
-                {
-                    "id": str(p.id),
-                    "sku": p.sku,
-                    "name": p.name,
-                    "designer": p.designer,
-                    "price": p.price,
-                    "productUrl": p.product_url,
-                    "thumbnailUrl": p.thumbnail_url,
-                    "createdAt": p.created_at.isoformat()
-                }
-                for p in look.products
-            ],
-            createdAt=look.created_at.isoformat(),
-            updatedAt=look.updated_at.isoformat()
-        )
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save to lookbook: {str(e)}"
         )
 
 

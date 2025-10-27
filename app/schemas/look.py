@@ -30,7 +30,6 @@ class LookResponse(LookBase):
     id: str = Field(..., description="Unique identifier (UUID)")
     generated_image_url: str = Field(..., alias="generatedImageUrl", description="URL to the generated image")
     products: List[ProductResponse] = Field(..., description="List of products in this look")
-    is_in_lookbook: bool = Field(..., alias="isInLookbook", description="Whether look is saved to lookbook")
     created_at: str = Field(..., alias="createdAt", description="Creation timestamp")
     updated_at: str = Field(..., alias="updatedAt", description="Last update timestamp")
     
