@@ -290,3 +290,81 @@ async def create_subscription_tables(
             detail=result
         )
 
+
+@router.post("/add-is-in-lookbook-field")
+async def add_is_in_lookbook_field(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add is_in_lookbook field to looks table.
+    
+    This migration:
+    1. Adds is_in_lookbook column (boolean, default false)
+    2. Sets all existing looks to is_in_lookbook=true (backward compatibility)
+    3. Creates index for better query performance
+    
+    Safe to run multiple times.
+    """
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {"status": "checking", "steps": []}
+    
+    try:
+        # Check if column already exists
+        if column_exists('looks', 'is_in_lookbook'):
+            result["status"] = "already_exists"
+            result["message"] = "✅ is_in_lookbook field already exists"
+            return result
+        
+        # Add column with default value
+        db.execute(text("""
+            ALTER TABLE looks 
+            ADD COLUMN is_in_lookbook BOOLEAN NOT NULL DEFAULT FALSE
+        """))
+        db.commit()
+        result["steps"].append("✅ Added is_in_lookbook column")
+        
+        # Set all existing looks to is_in_lookbook=true (backward compatibility)
+        # This ensures existing looks appear in lookbook as they did before
+        update_result = db.execute(text("""
+            UPDATE looks 
+            SET is_in_lookbook = TRUE 
+            WHERE is_in_lookbook = FALSE
+        """))
+        db.commit()
+        updated_count = update_result.rowcount
+        result["steps"].append(f"✅ Set {updated_count} existing look(s) to is_in_lookbook=true")
+        
+        # Add index for better query performance
+        try:
+            db.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_looks_is_in_lookbook 
+                ON looks(is_in_lookbook)
+            """))
+            db.commit()
+            result["steps"].append("✅ Created index on is_in_lookbook")
+        except Exception as e:
+            result["steps"].append(f"⚠️  Index might already exist: {str(e)}")
+        
+        result["status"] = "success"
+        result["message"] = "✅ Migration completed successfully"
+        result["affected_looks"] = updated_count
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
