@@ -398,6 +398,8 @@ async def get_shared_link(
     
     # Get looks ordered by position
     from sqlalchemy import text
+    from sqlalchemy.orm import joinedload
+    
     result = db.execute(
         text("""
             SELECT l.id, ll.position 
@@ -410,8 +412,14 @@ async def get_shared_link(
     )
     ordered_look_ids = [str(row[0]) for row in result]  # Ensure strings
     
-    # Sort looks based on the ordered IDs
-    looks_dict = {str(look.id): look for look in link.looks}
+    # Fetch looks with products eager loaded to avoid duplicates
+    from app.models.look import Look as DBLook
+    looks = db.query(DBLook).options(joinedload(DBLook.products)).filter(
+        DBLook.id.in_(ordered_look_ids)
+    ).all()
+    
+    # Create dictionary and maintain order
+    looks_dict = {str(look.id): look for look in looks}
     ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
     
     return SharedLinkResponse(
