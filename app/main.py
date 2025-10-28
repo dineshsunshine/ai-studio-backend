@@ -127,3 +127,20 @@ async def custom_redoc():
     """
 
 
+@app.get("/l/{link_id}", response_class=HTMLResponse, include_in_schema=False)
+async def serve_shared_link(link_id: str):
+    """Serve the shared link HTML page for public viewing"""
+    # Read the shared_link.html file
+    html_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "shared_link.html")
+    
+    try:
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>Lookbook page not found</h1><p>The shared link template is missing.</p>",
+            status_code=404
+        )
+
+
