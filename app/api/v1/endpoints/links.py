@@ -37,9 +37,12 @@ def generate_link_id(length: int = 8) -> str:
 
 def get_short_url(link_id: str) -> str:
     """Generate the full short URL for a link"""
+    # Import settings here to get the latest values
+    from app.core.config import settings
+    
     # Check if we're on production (Render) or development (ngrok/local)
-    base_url = os.getenv("BASE_URL")
-    ngrok_url = os.getenv("NGROK_PUBLIC_URL")
+    base_url = os.getenv("BASE_URL") or getattr(settings, 'BASE_URL', None)
+    ngrok_url = settings.NGROK_PUBLIC_URL
     
     if base_url:
         # Production (Render) - no prefix needed
