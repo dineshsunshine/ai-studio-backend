@@ -89,8 +89,18 @@ async def create_look(
         db.flush()  # Get the look ID without committing
         
         # 3. Process and create product records
-        print(f"📦 Processing {len(look_data.products)} products...")
+        # Deduplicate products by SKU to prevent duplicates
+        seen_skus = set()
+        unique_products = []
         for product_data in look_data.products:
+            if product_data.sku not in seen_skus:
+                seen_skus.add(product_data.sku)
+                unique_products.append(product_data)
+            else:
+                print(f"⚠️  Skipping duplicate product with SKU: {product_data.sku}")
+        
+        print(f"📦 Processing {len(unique_products)} unique products (removed {len(look_data.products) - len(unique_products)} duplicates)...")
+        for product_data in unique_products:
             # Decode and upload product thumbnail
             thumbnail_bytes = decode_base64_image(product_data.thumbnail_base64)
             thumbnail_stream = io.BytesIO(thumbnail_bytes)
