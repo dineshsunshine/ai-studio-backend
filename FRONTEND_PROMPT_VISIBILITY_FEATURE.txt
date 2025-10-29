@@ -1,0 +1,48 @@
+PROMPT FOR AI FRONTEND DEVELOPER:
+
+Implement look visibility and search features with the following requirements:
+
+1. LOOK CREATION - Add visibility selector:
+   - Dropdown with 3 options: Private (default), Shared, Public
+   - If Shared is selected, show multi-select for choosing users to share with
+   - Include "visibility" and "sharedWithUserIds" fields in POST /api/v1/looks/ request
+
+2. LOOKBOOK - Create 3 filtered views (tabs):
+   - "My Looks": GET /api/v1/looks/?view_type=my_private
+   - "Shared With Me": GET /api/v1/looks/?view_type=shared_with_me  
+   - "Public Gallery": GET /api/v1/looks/?view_type=public
+
+3. SEARCH - Add search functionality:
+   - Search bar in each tab
+   - Use debounced search (300ms delay)
+   - Searches across look title, notes, product names, and SKUs
+   - API: GET /api/v1/looks/?view_type={type}&search={keyword}
+
+4. VISIBILITY BADGES - Show on each look card:
+   - 🔒 Private (gray badge)
+   - 👥 Shared with X users (blue badge)
+   - 🌍 Public (green badge)
+
+5. EDIT VISIBILITY - Add option in look details/settings:
+   - Allow changing visibility after creation
+   - API: PATCH /api/v1/looks/{id}/visibility
+   - Body: {"visibility": "...", "sharedWithUserIds": [...]}
+
+6. SHAREABLE LINKS (LOOKBOOKS) - Enhanced with public looks:
+   - When creating/editing a link, allow users to select looks from ALL tabs:
+     * My Looks (own looks)
+     * Public Gallery (public looks from others)
+     * Shared With Me (looks shared by others)
+   - Users can now create lookbooks mixing their own looks + public inspiration
+   - API: POST /api/v1/links/ and PATCH /api/v1/links/{id} accept look IDs from any accessible source
+   - Backend validates permissions automatically
+   - Optional: Show badges on look cards to indicate source ("🌍 Public", "👥 Shared")
+
+API CHANGES (all backward compatible):
+- POST /api/v1/looks/ now accepts optional "visibility" and "sharedWithUserIds"
+- All look responses now include "visibility" and "sharedWith" fields
+- GET /api/v1/looks/ now accepts "view_type" and "search" query params
+- POST /api/v1/links/ and PATCH /api/v1/links/{id} now accept look IDs from own, public, or shared looks
+
+See backend/LOOK_VISIBILITY_AND_SEARCH_GUIDE.md for complete API documentation, code examples, and implementation details.
+
