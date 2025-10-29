@@ -50,16 +50,30 @@ async def get_user_settings(
     
     Returns the user's customized settings (theme + tool settings). 
     If no settings exist yet, automatically creates and returns default settings.
+    Settings are merged with current defaults to ensure all new fields are present.
     
     Returns:
         UserSettingsData: Complete user settings object with theme and toolSettings
     """
     user_settings = get_or_create_user_settings(str(current_user.id), db)
     
-    # Return settings object
+    # Merge user settings with current defaults to ensure all fields are present
+    # This handles cases where new fields are added to the schema
+    current_defaults = get_current_defaults(db)
+    
+    # Deep merge tool settings
+    merged_tool_settings = current_defaults["toolSettings"].copy()
+    for tool_name, tool_settings in user_settings.tool_settings.items():
+        if tool_name in merged_tool_settings:
+            # Merge tool-specific settings
+            merged_tool_settings[tool_name] = {**merged_tool_settings[tool_name], **tool_settings}
+        else:
+            merged_tool_settings[tool_name] = tool_settings
+    
+    # Return settings object with merged values
     return UserSettingsData(
         theme=user_settings.theme,
-        toolSettings=user_settings.tool_settings
+        toolSettings=merged_tool_settings
     )
 
 
