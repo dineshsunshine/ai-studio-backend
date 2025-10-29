@@ -405,3 +405,94 @@ async def migrate_look_visibility(
             detail=result
         )
 
+
+@router.post("/update-default-settings")
+async def update_default_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Update default settings with new fields from hardcoded defaults.
+    
+    This merges new fields (like stepByStep prompts) into the database defaults
+    while preserving any admin customizations.
+    
+    Safe to run multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": []
+    }
+    
+    try:
+        from app.models.default_settings_model import DefaultSettingsModel
+        from app.core.default_settings import get_default_tool_settings
+        import copy
+        
+        # Get the database defaults
+        db_defaults = db.query(DefaultSettingsModel).first()
+        
+        if not db_defaults:
+            result["status"] = "no_defaults"
+            result["message"] = "⚠️  No defaults in database - will use hardcoded defaults"
+            return result
+        
+        # Get the latest hardcoded defaults
+        hardcoded_defaults = get_default_tool_settings()
+        
+        # Deep merge: keep admin customizations, add new fields
+        updated_tool_settings = copy.deepcopy(hardcoded_defaults)
+        
+        result["steps"].append(f"📋 Starting with {len(hardcoded_defaults)} tools from hardcoded defaults")
+        
+        for tool_name, db_tool_settings in db_defaults.default_tool_settings.items():
+            if tool_name in updated_tool_settings:
+                # Count fields before merge
+                before_count = len(updated_tool_settings[tool_name])
+                
+                # Merge tool settings
+                for key, value in db_tool_settings.items():
+                    if isinstance(value, dict) and key in updated_tool_settings[tool_name]:
+                        # Merge nested dicts (like sceneDescriptions)
+                        updated_tool_settings[tool_name][key] = {**updated_tool_settings[tool_name][key], **value}
+                    else:
+                        # Override with DB value (admin customization)
+                        updated_tool_settings[tool_name][key] = value
+                
+                after_count = len(updated_tool_settings[tool_name])
+                if after_count > before_count:
+                    result["steps"].append(f"✅ {tool_name}: Added {after_count - before_count} new field(s)")
+                else:
+                    result["steps"].append(f"⏭️  {tool_name}: No new fields")
+        
+        # Update the database
+        db_defaults.default_tool_settings = updated_tool_settings
+        db.commit()
+        
+        result["status"] = "success"
+        result["message"] = "✅ Default settings updated successfully!"
+        result["updated_defaults"] = {
+            tool_name: list(settings.keys())
+            for tool_name, settings in updated_tool_settings.items()
+        }
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
