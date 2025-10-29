@@ -61,14 +61,27 @@ async def get_user_settings(
     # This handles cases where new fields are added to the schema
     current_defaults = get_current_defaults(db)
     
-    # Deep merge tool settings
-    merged_tool_settings = current_defaults["toolSettings"].copy()
-    for tool_name, tool_settings in user_settings.tool_settings.items():
+    # Deep merge tool settings - ensure defaults come first, then override with user values
+    import copy
+    merged_tool_settings = copy.deepcopy(current_defaults["toolSettings"])
+    
+    # Merge each tool's settings
+    for tool_name, user_tool_settings in user_settings.tool_settings.items():
         if tool_name in merged_tool_settings:
-            # Merge tool-specific settings
-            merged_tool_settings[tool_name] = {**merged_tool_settings[tool_name], **tool_settings}
+            # Deep merge: start with defaults, override with user values
+            default_tool_settings = merged_tool_settings[tool_name]
+            
+            # For nested objects like sceneDescriptions, we need to merge recursively
+            for key, value in user_tool_settings.items():
+                if isinstance(value, dict) and key in default_tool_settings and isinstance(default_tool_settings[key], dict):
+                    # Merge nested dictionaries
+                    merged_tool_settings[tool_name][key] = {**default_tool_settings[key], **value}
+                else:
+                    # Override with user value
+                    merged_tool_settings[tool_name][key] = value
         else:
-            merged_tool_settings[tool_name] = tool_settings
+            # New tool not in defaults - just use user settings
+            merged_tool_settings[tool_name] = user_tool_settings
     
     # Return settings object with merged values
     return UserSettingsData(
