@@ -92,6 +92,15 @@ def serialize_link(link: Link, db: Session = None) -> dict:
                 "title": look.title,
                 "notes": look.notes,
                 "generatedImageUrl": look.generated_image_url,
+                "visibility": getattr(look, 'visibility', 'private'),  # Default to private for backward compatibility
+                "sharedWith": [
+                    {
+                        "id": str(user.id),
+                        "email": user.email,
+                        "name": user.name
+                    }
+                    for user in getattr(look, 'shared_with', [])
+                ],
                 "products": [
                     {
                         "id": str(product.id),
@@ -441,15 +450,20 @@ async def get_shared_link(
     )
     ordered_look_ids = [str(row[0]) for row in result]  # Ensure strings
     
-    # Fetch looks with products eager loaded to avoid duplicates
+    # Fetch looks with products and shared_with eager loaded to avoid duplicates
     from app.models.look import Look as DBLook
-    looks = db.query(DBLook).options(joinedload(DBLook.products)).filter(
+    looks = db.query(DBLook).options(
+        joinedload(DBLook.products),
+        joinedload(DBLook.shared_with)
+    ).filter(
         DBLook.id.in_(ordered_look_ids)
     ).all()
     
     # Create dictionary and maintain order
     looks_dict = {str(look.id): look for look in looks}
     ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
+    
+    from app.schemas.look import SharedUserInfo
     
     return SharedLinkResponse(
         linkId=link.link_id,
@@ -462,6 +476,15 @@ async def get_shared_link(
                 title=look.title,
                 notes=look.notes,
                 generatedImageUrl=look.generated_image_url,
+                visibility=getattr(look, 'visibility', 'private'),
+                sharedWith=[
+                    SharedUserInfo(
+                        id=str(user.id),
+                        email=user.email,
+                        name=user.name
+                    )
+                    for user in getattr(look, 'shared_with', [])
+                ],
                 products=[
                     ProductResponse(
                         id=str(product.id),
