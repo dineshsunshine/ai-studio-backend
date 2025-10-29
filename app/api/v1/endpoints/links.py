@@ -126,7 +126,7 @@ async def create_link(
     
     **Authentication required.**
     
-    - Users can only include their own looks in links
+    - Users can include their own looks or public looks in links
     - Generates a unique alphanumeric link ID
     - Returns the short URL to share with clients
     
@@ -137,16 +137,30 @@ async def create_link(
     
     Returns the created link with short URL.
     """
-    # Verify all looks exist and belong to the user
+    # Verify all looks exist and are accessible
+    # Users can add:
+    # 1. Their own looks (any visibility)
+    # 2. Looks shared with them
+    # 3. Public looks
+    from app.models.look import look_shares
+    
     looks = db.query(Look).filter(
         Look.id.in_(link_data.lookIds),
-        Look.user_id == str(current_user.id)
+        or_(
+            Look.user_id == str(current_user.id),  # Own looks
+            Look.visibility == "public",  # Public looks
+            Look.id.in_(  # Looks shared with user
+                db.query(look_shares.c.look_id).filter(
+                    look_shares.c.user_id == str(current_user.id)
+                )
+            )
+        )
     ).all()
     
     if len(looks) != len(link_data.lookIds):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="One or more looks not found or do not belong to you"
+            detail="One or more looks not found or not accessible to you"
         )
     
     # Generate unique link ID
@@ -260,12 +274,13 @@ async def update_link(
     db: Session = Depends(get_db)
 ):
     """
-    Update a link's client information or looks.
+    Update a link's information or looks.
     
     **Authentication required.**
     
     - Users can only update their own links
-    - Can update client name, phone, or the collection of looks
+    - Can update title, description, or the collection of looks
+    - Can include own looks, public looks, or looks shared with them
     
     Path Parameters:
     - link_id: UUID of the link to update
@@ -273,7 +288,7 @@ async def update_link(
     Request Body (all optional):
     - title: Updated link title
     - description: Updated link description
-    - lookIds: Updated array of look UUIDs
+    - lookIds: Updated array of look UUIDs (own, public, or shared looks)
     
     Returns the updated link.
     """
@@ -301,16 +316,27 @@ async def update_link(
     
     # Update looks if provided
     if link_data.lookIds is not None:
-        # Verify all looks exist and belong to the user
+        # Verify all looks exist and are accessible
+        # Users can add their own looks, public looks, or looks shared with them
+        from app.models.look import look_shares
+        
         looks = db.query(Look).filter(
             Look.id.in_(link_data.lookIds),
-            Look.user_id == str(current_user.id)
+            or_(
+                Look.user_id == str(current_user.id),  # Own looks
+                Look.visibility == "public",  # Public looks
+                Look.id.in_(  # Looks shared with user
+                    db.query(look_shares.c.look_id).filter(
+                        look_shares.c.user_id == str(current_user.id)
+                    )
+                )
+            )
         ).all()
         
         if len(looks) != len(link_data.lookIds):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="One or more looks not found or do not belong to you"
+                detail="One or more looks not found or not accessible to you"
             )
         
         # Clear existing associations
