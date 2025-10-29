@@ -29,6 +29,9 @@ class LookCreatorSettings(BaseModel):
     sceneDescriptions: SceneDescriptions
     simpleLayeringInstruction: str = Field(..., min_length=1, description="Layering instruction for Simple Mode")
     advancedLayeringInstructionTemplate: str = Field(..., min_length=1, description="Layering instruction template for Advanced Mode")
+    stepByStepFirstPrompt: str = Field(..., min_length=1, description="Prompt for first product in step-by-step mode")
+    stepByStepSubsequentPrompt: str = Field(..., min_length=1, description="Prompt for subsequent products in step-by-step mode")
+    stepByStepFinalScenePrompt: str = Field(..., min_length=1, description="Prompt for final scene application in step-by-step mode")
     
     class Config:
         json_schema_extra = {
@@ -41,7 +44,10 @@ class LookCreatorSettings(BaseModel):
                     "forest": "A forest..."
                 },
                 "simpleLayeringInstruction": "Layer the products from bottom to top...",
-                "advancedLayeringInstructionTemplate": "Layer products according to: {custom_instruction}"
+                "advancedLayeringInstructionTemplate": "Layer products according to: {custom_instruction}",
+                "stepByStepFirstPrompt": "You are a professional AI photo editor...",
+                "stepByStepSubsequentPrompt": "You are a professional AI photo editor adding another item...",
+                "stepByStepFinalScenePrompt": "You are an expert photo editor finalizing a photograph..."
             }
         }
 

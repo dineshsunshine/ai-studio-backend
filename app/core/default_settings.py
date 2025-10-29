@@ -25,7 +25,41 @@ DEFAULT_TOOL_SETTINGS = {
             "forest": "A magical, dense forest with tall, ancient trees. Sunbeams filter through the canopy, creating a dappled light effect on the mossy ground. The mood is tranquil and slightly mysterious."
         },
         "simpleLayeringInstruction": "Layer the products from bottom to top in the order they were provided, starting with foundational pieces and ending with outer layers only if multiple layers are provided",
-        "advancedLayeringInstructionTemplate": "Layer the products according to the following custom instruction: {custom_instruction}"
+        "advancedLayeringInstructionTemplate": "Layer the products according to the following custom instruction: {custom_instruction}",
+        "stepByStepFirstPrompt": (
+            "You are a professional AI photo editor specializing in fashion photography. Your task is to dress a fashion model in a single product image with hyper-realistic precision.\n\n"
+            "**Primary Image:** The first image is the model (either nude or in minimal clothing). This is your base.\n"
+            "**Product to Add:** The second image is {product_name}. You must dress the model in this product, replicating its exact color, texture, design, and branding.\n\n"
+            "**Instructions:**\n"
+            "- Preserve the model's pose, body proportions, and facial features exactly.\n"
+            "- Ensure the product fits naturally and realistically on the model's body.\n"
+            "- Maintain photorealistic quality throughout the entire image.\n"
+            "- Do not change the background or lighting.\n"
+            "- Output only the final composite image of the model wearing the product."
+        ),
+        "stepByStepSubsequentPrompt": (
+            "You are a professional AI photo editor adding another fashion item to an existing styled model.\n\n"
+            "**Current Image:** The model is already wearing: {worn_items_list}.\n"
+            "**New Product to Add:** The next image is {product_name}. Layer this product onto the model, ensuring it sits naturally over or under the existing items.\n\n"
+            "**Instructions:**\n"
+            "- Preserve the model's pose and all previously worn items exactly as they appear.\n"
+            "- Ensure the new product fits realistically, respecting natural layering (e.g., jackets over shirts, accessories on top).\n"
+            "- Match the lighting and shadows to the existing image.\n"
+            "- Maintain hyper-realistic quality.\n"
+            "- Output only the updated composite image."
+        ),
+        "stepByStepFinalScenePrompt": (
+            "You are an expert photo editor finalizing a high-end fashion photograph.\n\n"
+            "**Current Image:** The fully dressed model in all selected products.\n"
+            "**Final Task:** Transport this model into the following scene while preserving the outfit exactly:\n\n"
+            "{scene_description}\n\n"
+            "**Instructions:**\n"
+            "- Replace only the background and adjust the lighting to match the new scene naturally.\n"
+            "- Do not alter the model's pose, outfit, makeup, or any product details.\n"
+            "- Ensure the model blends seamlessly into the new environment with realistic shadows and reflections.\n"
+            "- The final image should look like a professional fashion shoot taken in this location.\n"
+            "- Output only the final image."
+        )
     },
     "copywriter": {
         "systemPrompt": (
