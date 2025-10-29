@@ -1,8 +1,16 @@
 from typing import Optional, List
 from datetime import datetime
+from enum import Enum
 from pydantic import BaseModel, Field, field_serializer
 from app.schemas.product import ProductCreate, ProductResponse
 import uuid
+
+
+class LookVisibility(str, Enum):
+    """Visibility options for looks"""
+    PRIVATE = "private"
+    SHARED = "shared"
+    PUBLIC = "public"
 
 
 class LookBase(BaseModel):
@@ -14,6 +22,8 @@ class LookCreate(LookBase):
     """Schema for creating a new look"""
     generated_image_base64: str = Field(..., alias="generatedImageBase64", description="Base64-encoded generated image")
     products: List[ProductCreate] = Field(..., min_items=1, description="List of products in this look")
+    visibility: LookVisibility = Field(default=LookVisibility.PRIVATE, description="Visibility setting: private, shared, or public")
+    shared_with_user_ids: Optional[List[str]] = Field(default=None, alias="sharedWithUserIds", description="List of user IDs to share with (only used when visibility=shared)")
     
     class Config:
         populate_by_name = True
@@ -25,11 +35,32 @@ class LookUpdate(BaseModel):
     notes: Optional[str] = Field(None, description="Updated notes")
 
 
+class LookVisibilityUpdate(BaseModel):
+    """Schema for updating look visibility settings"""
+    visibility: LookVisibility = Field(..., description="New visibility setting: private, shared, or public")
+    shared_with_user_ids: Optional[List[str]] = Field(default=None, alias="sharedWithUserIds", description="List of user IDs to share with (only used when visibility=shared)")
+    
+    class Config:
+        populate_by_name = True
+
+
+class SharedUserInfo(BaseModel):
+    """Basic user info for shared_with list"""
+    id: str = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+    name: Optional[str] = Field(None, description="User name")
+    
+    class Config:
+        from_attributes = True
+
+
 class LookResponse(LookBase):
     """Schema for look in API responses"""
     id: str = Field(..., description="Unique identifier (UUID)")
     generated_image_url: str = Field(..., alias="generatedImageUrl", description="URL to the generated image")
     products: List[ProductResponse] = Field(..., description="List of products in this look")
+    visibility: LookVisibility = Field(..., description="Visibility setting: private, shared, or public")
+    shared_with: List[SharedUserInfo] = Field(default=[], alias="sharedWith", description="Users this look is shared with")
     created_at: str = Field(..., alias="createdAt", description="Creation timestamp")
     updated_at: str = Field(..., alias="updatedAt", description="Last update timestamp")
     

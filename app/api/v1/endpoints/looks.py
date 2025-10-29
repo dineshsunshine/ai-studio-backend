@@ -12,7 +12,7 @@ from app.core.auth import get_current_user, require_admin
 from app.models.look import Look as DBLook
 from app.models.product import Product as DBProduct
 from app.models.user import User, UserRole
-from app.schemas.look import LookCreate, LookUpdate, LookResponse, LookListResponse
+from app.schemas.look import LookCreate, LookUpdate, LookVisibilityUpdate, LookResponse, LookListResponse
 from app.core.storage import storage_service
 
 router = APIRouter()
@@ -83,10 +83,23 @@ async def create_look(
             title=look_data.title,
             notes=look_data.notes,
             generated_image_url=generated_image_url,
-            user_id=str(current_user.id)  # Associate with current user
+            user_id=str(current_user.id),  # Associate with current user
+            visibility=look_data.visibility.value  # Set visibility
         )
         db.add(new_look)
         db.flush()  # Get the look ID without committing
+        
+        # 2b. Handle sharing if visibility is SHARED
+        if look_data.visibility.value == "shared" and look_data.shared_with_user_ids:
+            from app.models.user import User as DBUser
+            # Validate that all user IDs exist
+            for user_id in look_data.shared_with_user_ids:
+                user = db.query(DBUser).filter(DBUser.id == user_id).first()
+                if user:
+                    new_look.shared_with.append(user)
+                else:
+                    print(f"⚠️  User {user_id} not found, skipping...")
+            print(f"🔗 Shared look with {len(new_look.shared_with)} users")
         
         # 3. Process and create product records
         # Deduplicate products by SKU to prevent duplicates
@@ -132,11 +145,21 @@ async def create_look(
         print(f"✅ Created look {new_look.id} with {len(new_look.products)} products for user {current_user.email}")
         
         # Convert to dict with proper serialization
+        from app.schemas.look import SharedUserInfo
         return LookResponse(
             id=str(new_look.id),
             title=new_look.title,
             notes=new_look.notes,
             generatedImageUrl=new_look.generated_image_url,
+            visibility=new_look.visibility,
+            sharedWith=[
+                SharedUserInfo(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name
+                )
+                for user in new_look.shared_with
+            ],
             products=[
                 {
                     "id": str(p.id),
@@ -168,19 +191,29 @@ async def create_look(
 @router.get("/", response_model=LookListResponse)
 async def list_looks(
     all: bool = Query(False, description="Show all looks (admin only)"),
+    view_type: str = Query(None, description="Filter by view type: 'my_private', 'shared_with_me', 'public'"),
+    search: str = Query(None, description="Search looks by title, notes, product name, or SKU"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    List looks with pagination.
+    List looks with pagination, filtering, and search.
     
-    - Regular users see only their own looks
-    - Admins can use ?all=true to see all looks
+    **View Type Filters:**
+    - my_private: Looks created by you (private or shared)
+    - shared_with_me: Looks shared with you by others
+    - public: All public looks
+    - (no view_type): Defaults to your private looks
     
-    Query Parameters:
-    - all: Show all looks (admin only)
+    **Search:**
+    Search across look title, notes, product names, and product SKUs
+    
+    **Query Parameters:**
+    - all: Show all looks (admin only, overrides view_type)
+    - view_type: Filter by visibility type
+    - search: Search keyword
     - skip: Number of records to skip (default: 0)
     - limit: Maximum number of records to return (default: 100, max: 1000)
     
@@ -190,22 +223,64 @@ async def list_looks(
     if limit > 1000:
         limit = 1000
     
-    query = db.query(DBLook)
+    # Start with base query
+    query = db.query(DBLook).distinct()
     
-    # Filter by user unless admin requests all looks
-    if not (all and current_user.role == UserRole.ADMIN):
-        query = query.filter(DBLook.user_id == str(current_user.id))
+    # Admin can see all looks if requested
+    if all and current_user.role == UserRole.ADMIN:
+        pass  # No filter, show all
+    else:
+        # Apply view type filters
+        if view_type == "my_private":
+            # Looks created by current user
+            query = query.filter(DBLook.user_id == str(current_user.id))
+        elif view_type == "shared_with_me":
+            # Looks shared with current user (not created by them)
+            from app.models.look import look_shares
+            from app.models.user import User as DBUser
+            query = query.join(look_shares).filter(
+                look_shares.c.user_id == str(current_user.id),
+                DBLook.user_id != str(current_user.id),
+                DBLook.visibility == "shared"
+            )
+        elif view_type == "public":
+            # All public looks
+            query = query.filter(DBLook.visibility == "public")
+        else:
+            # Default: show user's own looks
+            query = query.filter(DBLook.user_id == str(current_user.id))
+    
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        # Search in look title, notes, or join with products for name/SKU
+        query = query.outerjoin(DBProduct).filter(
+            (DBLook.title.ilike(search_term)) |
+            (DBLook.notes.ilike(search_term)) |
+            (DBProduct.name.ilike(search_term)) |
+            (DBProduct.sku.ilike(search_term))
+        )
     
     total = query.count()
     looks = query.order_by(DBLook.created_at.desc()).offset(skip).limit(limit).all()
     
     # Serialize looks properly
+    from app.schemas.look import SharedUserInfo
     serialized_looks = [
         LookResponse(
             id=str(look.id),
             title=look.title,
             notes=look.notes,
             generatedImageUrl=look.generated_image_url,
+            visibility=look.visibility,
+            sharedWith=[
+                SharedUserInfo(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name
+                )
+                for user in look.shared_with
+            ],
             products=[
                 {
                     "id": str(p.id),
@@ -263,11 +338,21 @@ async def get_look(
             detail="You don't have permission to access this look"
         )
     
+    from app.schemas.look import SharedUserInfo
     return LookResponse(
         id=str(look.id),
         title=look.title,
         notes=look.notes,
         generatedImageUrl=look.generated_image_url,
+        visibility=look.visibility,
+        sharedWith=[
+            SharedUserInfo(
+                id=str(user.id),
+                email=user.email,
+                name=user.name
+            )
+            for user in look.shared_with
+        ],
         products=[
             {
                 "id": str(p.id),
@@ -328,11 +413,21 @@ async def update_look(
         db.commit()
         db.refresh(look)
         
+        from app.schemas.look import SharedUserInfo
         return LookResponse(
             id=str(look.id),
             title=look.title,
             notes=look.notes,
             generatedImageUrl=look.generated_image_url,
+            visibility=look.visibility,
+            sharedWith=[
+                SharedUserInfo(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name
+                )
+                for user in look.shared_with
+            ],
             products=[
                 {
                     "id": str(p.id),
@@ -354,6 +449,100 @@ async def update_look(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update look: {str(e)}"
+        )
+
+
+@router.patch("/{look_id}/visibility/", response_model=LookResponse)
+@router.patch("/{look_id}/visibility", response_model=LookResponse)
+async def update_look_visibility(
+    look_id: str,
+    visibility_update: LookVisibilityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a look's visibility settings.
+    
+    - Users can only update visibility of their own looks
+    - Admins can update visibility of any look
+    
+    Visibility options:
+    - private: Only visible to creator
+    - shared: Visible to specific users (provide sharedWithUserIds)
+    - public: Visible to everyone
+    """
+    # Find the look
+    look = db.query(DBLook).filter(DBLook.id == look_id).first()
+    if not look:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Look not found"
+        )
+    
+    # Check ownership (unless admin)
+    if current_user.role != UserRole.ADMIN and look.user_id != str(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to update this look"
+        )
+    
+    try:
+        # Update visibility
+        look.visibility = visibility_update.visibility.value
+        
+        # Clear existing shares
+        look.shared_with.clear()
+        
+        # Add new shares if visibility is SHARED
+        if visibility_update.visibility.value == "shared" and visibility_update.shared_with_user_ids:
+            from app.models.user import User as DBUser
+            for user_id in visibility_update.shared_with_user_ids:
+                user = db.query(DBUser).filter(DBUser.id == user_id).first()
+                if user:
+                    look.shared_with.append(user)
+                else:
+                    print(f"⚠️  User {user_id} not found, skipping...")
+            print(f"🔗 Updated sharing: Look now shared with {len(look.shared_with)} users")
+        
+        db.commit()
+        db.refresh(look)
+        
+        from app.schemas.look import SharedUserInfo
+        return LookResponse(
+            id=str(look.id),
+            title=look.title,
+            notes=look.notes,
+            generatedImageUrl=look.generated_image_url,
+            visibility=look.visibility,
+            sharedWith=[
+                SharedUserInfo(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name
+                )
+                for user in look.shared_with
+            ],
+            products=[
+                {
+                    "id": str(p.id),
+                    "sku": p.sku,
+                    "name": p.name,
+                    "designer": p.designer,
+                    "price": p.price,
+                    "productUrl": p.product_url,
+                    "thumbnailUrl": p.thumbnail_url,
+                    "createdAt": p.created_at.isoformat()
+                }
+                for p in look.products
+            ],
+            createdAt=look.created_at.isoformat(),
+            updatedAt=look.updated_at.isoformat()
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update look visibility: {str(e)}"
         )
 
 

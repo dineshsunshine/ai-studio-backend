@@ -290,3 +290,118 @@ async def create_subscription_tables(
             detail=result
         )
 
+
+@router.post("/look-visibility")
+async def migrate_look_visibility(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add visibility column and look_shares table for look sharing feature.
+    
+    Changes:
+    - Add 'visibility' column to looks table (default: 'private')
+    - Create 'look_shares' junction table for sharing looks with specific users
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": []
+    }
+    
+    try:
+        # Check current state
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        has_visibility = column_exists('looks', 'visibility')
+        has_look_shares = 'look_shares' in existing_tables
+        
+        result["current_state"] = {
+            "has_visibility_column": has_visibility,
+            "has_look_shares_table": has_look_shares
+        }
+        
+        # Check if migration already done
+        if has_visibility and has_look_shares:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ Look visibility migration already completed!"
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        
+        # Step 1: Add visibility column to looks table
+        if not has_visibility:
+            # Add column with default value
+            db.execute(text(
+                "ALTER TABLE looks ADD COLUMN visibility VARCHAR(20) DEFAULT 'private' NOT NULL"
+            ))
+            db.commit()
+            result["steps"].append("✅ Added visibility column to looks table")
+            
+            # Create index on visibility for faster queries
+            try:
+                db.execute(text(
+                    "CREATE INDEX idx_looks_visibility ON looks(visibility)"
+                ))
+                db.commit()
+                result["steps"].append("✅ Created index on visibility column")
+            except Exception as e:
+                result["steps"].append(f"⚠️  Index creation skipped (may already exist): {str(e)}")
+        else:
+            result["steps"].append("⏭️  Skipped visibility column (already exists)")
+        
+        # Step 2: Create look_shares junction table
+        if not has_look_shares:
+            # Import look model to ensure look_shares is registered
+            from app.models.look import look_shares, Look
+            
+            # Create the table
+            look_shares.create(bind=engine, checkfirst=True)
+            result["steps"].append("✅ Created look_shares junction table")
+        else:
+            result["steps"].append("⏭️  Skipped look_shares table (already exists)")
+        
+        # Final verification
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        has_visibility_now = column_exists('looks', 'visibility')
+        has_look_shares_now = 'look_shares' in existing_tables
+        
+        if has_visibility_now and has_look_shares_now:
+            result["status"] = "success"
+            result["message"] = "✅ Look visibility migration completed successfully!"
+            result["final_state"] = {
+                "visibility_column": "✅ exists",
+                "look_shares_table": "✅ exists"
+            }
+        else:
+            result["status"] = "partial"
+            result["message"] = "⚠️  Migration partially completed"
+            result["final_state"] = {
+                "visibility_column": "✅ exists" if has_visibility_now else "❌ missing",
+                "look_shares_table": "✅ exists" if has_look_shares_now else "❌ missing"
+            }
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
