@@ -11,7 +11,7 @@ from app.core.database import get_db, engine, Base
 from app.models.user import User, UserRole
 from app.core.auth import get_current_active_user
 
-router = APIRouter(prefix="/migrate", tags=["migration"])
+router = APIRouter()
 
 
 def column_exists(table_name: str, column_name: str) -> bool:
