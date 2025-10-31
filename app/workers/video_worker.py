@@ -214,7 +214,11 @@ def process_video_generation(self, job_id: str):
         db.commit()
         
         try:
-            response = requests.get(job.google_result_uri, stream=True, timeout=120)
+            # Google requires API key authentication for downloading videos
+            headers = {
+                'x-goog-api-key': GOOGLE_API_KEY
+            }
+            response = requests.get(job.google_result_uri, headers=headers, stream=True, timeout=120)
             response.raise_for_status()
             
             # Save to temporary file
