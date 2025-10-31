@@ -546,7 +546,15 @@
                         ${job.prompt ? `
                         <div class="detail-row">
                             <div class="detail-label">Prompt:</div>
-                            <div class="detail-value">${escapeHtml(job.prompt.substring(0, 100))}${job.prompt.length > 100 ? '...' : ''}</div>
+                            <div class="detail-value">
+                                <span id="prompt-short-${job.id}">${escapeHtml(job.prompt.substring(0, 100))}${job.prompt.length > 100 ? '...' : ''}</span>
+                                <span id="prompt-full-${job.id}" style="display: none;">${escapeHtml(job.prompt)}</span>
+                                ${job.prompt.length > 100 ? `
+                                    <button onclick="togglePrompt('${job.id}')" style="margin-left: 10px; background: #667eea; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                        <span id="prompt-btn-${job.id}">Show Full</span>
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
                         ` : ''}
                         <div class="detail-row">
@@ -569,6 +577,16 @@
                         <div class="detail-row">
                             <div class="detail-label">Completed:</div>
                             <div class="detail-value">${formatDate(job.completedAt)}</div>
+                        </div>
+                        ` : ''}
+                        ${job.frontendRequest && (job.frontendRequest.initialImage || job.frontendRequest.endFrame || job.frontendRequest.referenceImages) ? `
+                        <div class="detail-row">
+                            <div class="detail-label">Uploaded Images:</div>
+                            <div class="detail-value">
+                                ${job.frontendRequest.initialImage ? `<div>🖼️ Initial: ${job.frontendRequest.initialImage}</div>` : ''}
+                                ${job.frontendRequest.endFrame ? `<div>🎬 End Frame: ${job.frontendRequest.endFrame}</div>` : ''}
+                                ${job.frontendRequest.referenceImages && Array.isArray(job.frontendRequest.referenceImages) ? `<div>📎 Reference: ${job.frontendRequest.referenceImages.join(', ')}</div>` : ''}
+                            </div>
                         </div>
                         ` : ''}
                     </div>
@@ -710,6 +728,22 @@
                     .replace(/>/g, '&gt;');
             } catch (e) {
                 return '<em>Error formatting JSON</em>';
+            }
+        }
+
+        function togglePrompt(jobId) {
+            const shortEl = document.getElementById(`prompt-short-${jobId}`);
+            const fullEl = document.getElementById(`prompt-full-${jobId}`);
+            const btnEl = document.getElementById(`prompt-btn-${jobId}`);
+            
+            if (fullEl.style.display === 'none') {
+                shortEl.style.display = 'none';
+                fullEl.style.display = 'inline';
+                btnEl.textContent = 'Show Less';
+            } else {
+                shortEl.style.display = 'inline';
+                fullEl.style.display = 'none';
+                btnEl.textContent = 'Show Full';
             }
         }
 

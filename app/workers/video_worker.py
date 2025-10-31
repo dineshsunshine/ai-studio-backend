@@ -80,10 +80,41 @@ def process_video_generation(self, job_id: str):
             job.add_log(f"⏱️  Duration: {job.duration_seconds}s", "info")
         
         job.progress_percentage = 10
-        job.status_message = "Calling Google Veo 3.1 API..."
+        job.status_message = "Preparing images and calling Google Veo 3.1 API..."
         db.commit()
         
-        # 4. Call Google Veo API using new genai SDK
+        # 4. Upload images to Google File API (if provided)
+        initial_image_file = None
+        end_frame_file = None
+        reference_image_files = []
+        
+        if job.initial_image_path and os.path.exists(job.initial_image_path):
+            try:
+                job.add_log(f"📤 Uploading initial image to Google...", "info")
+                initial_image_file = genai_client.files.upload(path=job.initial_image_path)
+                job.add_log(f"✅ Initial image uploaded: {initial_image_file.name}", "info")
+            except Exception as e:
+                job.add_log(f"⚠️  Failed to upload initial image: {str(e)}", "warning")
+        
+        if job.end_frame_path and os.path.exists(job.end_frame_path):
+            try:
+                job.add_log(f"📤 Uploading end frame to Google...", "info")
+                end_frame_file = genai_client.files.upload(path=job.end_frame_path)
+                job.add_log(f"✅ End frame uploaded: {end_frame_file.name}", "info")
+            except Exception as e:
+                job.add_log(f"⚠️  Failed to upload end frame: {str(e)}", "warning")
+        
+        if job.reference_images_paths:
+            for ref_path in job.reference_images_paths:
+                if os.path.exists(ref_path):
+                    try:
+                        ref_file = genai_client.files.upload(path=ref_path)
+                        reference_image_files.append(ref_file)
+                        job.add_log(f"✅ Reference image uploaded: {ref_file.name}", "info")
+                    except Exception as e:
+                        job.add_log(f"⚠️  Failed to upload reference image: {str(e)}", "warning")
+        
+        # 5. Call Google Veo API using new genai SDK
         if not genai_client:
             raise Exception("GenAI client not initialized. GOOGLE_API_KEY might be missing.")
         
@@ -105,11 +136,26 @@ def process_video_generation(self, job_id: str):
             if job.duration_seconds:
                 config_dict['durationSeconds'] = job.duration_seconds
             
+            # Add initial image if uploaded
+            if initial_image_file:
+                config_dict['initialImage'] = initial_image_file
+                job.add_log(f"🖼️  Using initial image: {initial_image_file.name}", "info")
+            
+            # Add end frame if uploaded
+            if end_frame_file:
+                config_dict['lastFrame'] = end_frame_file
+                job.add_log(f"🖼️  Using end frame: {end_frame_file.name}", "info")
+            
+            # Add reference images if uploaded
+            if reference_image_files:
+                config_dict['referenceImages'] = reference_image_files
+                job.add_log(f"🖼️  Using {len(reference_image_files)} reference image(s)", "info")
+            
             # Create config object
             config = types.GenerateVideosConfig(**config_dict) if config_dict else None
             
             if config:
-                job.add_log(f"⚙️  Config: {config_dict}", "info")
+                job.add_log(f"⚙️  Config: {str(config_dict)[:200]}...", "info")
             
             # Model name should be: veo-3.1-generate-preview (not full path)
             model_name = job.model
@@ -120,10 +166,19 @@ def process_video_generation(self, job_id: str):
             job.add_log(f"🎯 Using model: {model_name}", "info")
             
             # Capture Veo request for monitoring
+            veo_config_for_log = dict(config_dict) if config_dict else {}
+            # Replace file objects with their names for logging
+            if 'initialImage' in veo_config_for_log:
+                veo_config_for_log['initialImage'] = initial_image_file.name if initial_image_file else None
+            if 'lastFrame' in veo_config_for_log:
+                veo_config_for_log['lastFrame'] = end_frame_file.name if end_frame_file else None
+            if 'referenceImages' in veo_config_for_log:
+                veo_config_for_log['referenceImages'] = [f.name for f in reference_image_files]
+            
             job.veo_request = {
                 "model": model_name,
                 "prompt": job.prompt or "A beautiful video",
-                "config": config_dict if config_dict else None,
+                "config": veo_config_for_log,
                 "timestamp": datetime.utcnow().isoformat()
             }
             
@@ -308,6 +363,16 @@ def process_video_generation(self, job_id: str):
             "progress": 100,
             "timestamp": datetime.utcnow().isoformat()
         }
+        
+        # Clean up temporary image files
+        if job.initial_image_path and os.path.exists(job.initial_image_path):
+            try:
+                job_dir = os.path.dirname(job.initial_image_path)
+                import shutil
+                shutil.rmtree(job_dir, ignore_errors=True)
+                job.add_log("🧹 Cleaned up temporary files", "info")
+            except Exception as e:
+                job.add_log(f"⚠️  Failed to clean up temp files: {str(e)}", "warning")
         
         db.commit()
         

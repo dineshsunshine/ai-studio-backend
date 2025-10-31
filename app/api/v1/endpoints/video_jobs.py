@@ -7,6 +7,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+import os
+import shutil
+import uuid
 
 from app.core.database import get_db
 from app.models.video_job import VideoJob as DBVideoJob
@@ -15,8 +18,13 @@ from app.schemas.video_job import VideoJobResponse, VideoJobListResponse
 from app.core.auth import get_current_active_user
 from app.core.celery_app import celery_app
 from app.workers.video_worker import process_video_generation
+from app.core.config import settings
 
 router = APIRouter()
+
+# Temporary directory for uploaded images (will be uploaded to Google then deleted)
+TEMP_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "temp_uploads")
+os.makedirs(TEMP_UPLOAD_DIR, exist_ok=True)
 
 
 @router.get("/all", response_model=VideoJobListResponse)
@@ -116,7 +124,33 @@ async def create_video_job(
             detail="Aspect ratio must be '16:9' or '9:16'"
         )
     
-    # 4. Create job record
+    # 4. Save uploaded images to temporary storage
+    initial_image_path = None
+    end_frame_path = None
+    reference_images_paths = []
+    
+    job_temp_dir = os.path.join(TEMP_UPLOAD_DIR, str(uuid.uuid4()))
+    os.makedirs(job_temp_dir, exist_ok=True)
+    
+    if initialImage and initialImage.filename:
+        initial_image_path = os.path.join(job_temp_dir, f"initial_{initialImage.filename}")
+        with open(initial_image_path, "wb") as f:
+            shutil.copyfileobj(initialImage.file, f)
+    
+    if endFrame and endFrame.filename:
+        end_frame_path = os.path.join(job_temp_dir, f"end_{endFrame.filename}")
+        with open(end_frame_path, "wb") as f:
+            shutil.copyfileobj(endFrame.file, f)
+    
+    if referenceImages:
+        for idx, ref_img in enumerate(referenceImages):
+            if ref_img.filename:
+                ref_path = os.path.join(job_temp_dir, f"ref_{idx}_{ref_img.filename}")
+                with open(ref_path, "wb") as f:
+                    shutil.copyfileobj(ref_img.file, f)
+                reference_images_paths.append(ref_path)
+    
+    # 5. Create job record
     new_job = DBVideoJob(
         user_id=str(current_user.id),
         prompt=prompt,
@@ -126,7 +160,10 @@ async def create_video_job(
         duration_seconds=durationSeconds,
         status="PENDING",
         status_message="Job queued for processing",
-        tokens_consumed=token_result["consumedTokens"]
+        tokens_consumed=token_result["consumedTokens"],
+        initial_image_path=initial_image_path,
+        end_frame_path=end_frame_path,
+        reference_images_paths=reference_images_paths if reference_images_paths else None
     )
     
     # Capture frontend request (for monitoring dashboard)
@@ -136,9 +173,9 @@ async def create_video_job(
         "resolution": resolution,
         "aspectRatio": aspectRatio,
         "durationSeconds": durationSeconds,
-        "initialImage": "<uploaded file>" if initialImage else None,
-        "endFrame": "<uploaded file>" if endFrame else None,
-        "referenceImages": f"<{len(referenceImages)} files>" if referenceImages else None,
+        "initialImage": initialImage.filename if initialImage else None,
+        "endFrame": endFrame.filename if endFrame else None,
+        "referenceImages": [img.filename for img in referenceImages] if referenceImages else None,
         "user": {
             "id": str(current_user.id),
             "email": current_user.email
