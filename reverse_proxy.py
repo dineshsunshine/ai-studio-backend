@@ -137,8 +137,8 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 if header.lower() not in ['host', 'connection']:
                     req.add_header(header, value)
             
-            # Make request
-            with urllib.request.urlopen(req, timeout=30) as response:
+            # Make request (increased timeout for large uploads like video generation)
+            with urllib.request.urlopen(req, timeout=300) as response:
                 # Send response status
                 self.send_response(response.status)
                 
@@ -164,6 +164,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write(e.read())
         
         except Exception as e:
+            print(f"❌ Proxy error for {self.command} {self.path}: {type(e).__name__}: {str(e)}")
             self.send_response(502)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
