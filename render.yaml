@@ -82,8 +82,7 @@ services:
     
     # Environment variables
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      # PYTHON_VERSION removed - let Render use default (works with unpinned psycopg2-binary)
       
       # Database URL (same as backend)
       - key: DATABASE_URL
