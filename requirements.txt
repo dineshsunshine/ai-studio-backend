@@ -1,6 +1,7 @@
 # Core FastAPI and server
 fastapi==0.118.2
 uvicorn[standard]==0.37.0
+python-multipart==0.0.9
 
 # Data validation and settings
 pydantic==2.12.0
