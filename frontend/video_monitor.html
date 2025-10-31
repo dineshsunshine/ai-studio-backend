@@ -360,7 +360,7 @@
                 updateRefreshIndicator(true);
 
                 // Fetch jobs from all users (public access)
-                const response = await fetch(`${API_BASE}/admin/video-jobs/all`, {
+                const response = await fetch(`${API_BASE}/video-jobs/all`, {
                     headers: {
                         'ngrok-skip-browser-warning': 'true'
                     }
