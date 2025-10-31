@@ -9,6 +9,11 @@ import tempfile
 from datetime import datetime
 from typing import Optional
 from celery import Task
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# This is critical for Celery workers to access GOOGLE_API_KEY
+load_dotenv()
 
 from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
@@ -18,6 +23,13 @@ from app.core.storage import upload_video_to_cloudinary
 # Google API configuration
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_GENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+
+# Validate API key is loaded
+if not GOOGLE_API_KEY:
+    print("⚠️  WARNING: GOOGLE_API_KEY is not set! Video generation will fail.")
+    print("   Please add GOOGLE_API_KEY to your .env file")
+else:
+    print(f"✅ Google API key loaded: {GOOGLE_API_KEY[:10]}...")
 
 
 class VideoGenerationTask(Task):
