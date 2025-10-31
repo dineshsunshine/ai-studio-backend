@@ -38,3 +38,5 @@ pyngrok==7.0.0
 
 # Database migrations (optional but recommended)
 alembic==1.13.2
+
+# Updated: psycopg2-binary unpinned for Python 3.13 compatibility
