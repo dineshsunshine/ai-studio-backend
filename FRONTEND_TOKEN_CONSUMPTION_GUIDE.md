@@ -20,6 +20,7 @@ console.log(data.costs);
 //   "text_to_image": 10,
 //   "multi_modal": 20,
 //   "multi_modal_light": 8,
+//   "video_generation": 50,
 //   "image_to_text": 5,
 //   "text_to_text": 3
 // }
@@ -61,6 +62,7 @@ Use these exact operation names when calling `/consume`:
 | `text_to_image`     | Model Manager (AI Generate) | 10            |
 | `multi_modal`       | Look Creator (Full)         | 20            |
 | `multi_modal_light` | Finishing Studio            | 8             |
+| `video_generation`  | Video Content Generation    | 50            |
 | `image_to_text`     | Image analysis              | 5             |
 | `text_to_text`      | Copywriter                  | 3             |
 
@@ -134,7 +136,7 @@ async function generateModel(modelName, promptDetails) {
 ### Invalid Operation Error (400)
 ```json
 {
-  "detail": "Invalid operation: wrong_operation. Valid operations: ['text_to_image', 'multi_modal', 'multi_modal_light', 'image_to_text', 'text_to_text']"
+  "detail": "Invalid operation: wrong_operation. Valid operations: ['text_to_image', 'multi_modal', 'multi_modal_light', 'video_generation', 'image_to_text', 'text_to_text']"
 }
 ```
 

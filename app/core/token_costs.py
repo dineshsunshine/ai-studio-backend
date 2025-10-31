@@ -18,6 +18,9 @@ TOKEN_COSTS: Dict[str, int] = {
     # Finishing Studio
     "multi_modal_light": 8,        # Lighter multi-modal processing
     
+    # Video Generation
+    "video_generation": 50,        # Generate video content (high resource cost)
+    
     # Other Operations
     "image_to_text": 5,            # Convert image to text description
     "text_to_text": 3,             # Text processing (e.g., copywriting)
