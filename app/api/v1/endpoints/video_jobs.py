@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.models.video_job import VideoJob as DBVideoJob
 from app.models.user import User
 from app.schemas.video_job import VideoJobResponse, VideoJobListResponse
-from app.api.dependencies import get_current_active_user
+from app.core.auth import get_current_active_user
 from app.core.celery_app import celery_app
 from app.workers.video_worker import process_video_generation
 
