@@ -57,6 +57,12 @@ class VideoJob(Base):
     cloudinary_url = Column(String, nullable=True)  # Permanent Cloudinary video URL
     cloudinary_public_id = Column(String, nullable=True)  # For deletion if needed
     
+    # Request/Response tracking for debugging and monitoring
+    frontend_request = Column(JSON, nullable=True)  # Original request from frontend
+    veo_request = Column(JSON, nullable=True)  # Request sent to Google Veo API
+    veo_response = Column(JSON, nullable=True)  # Response received from Google Veo
+    backend_response = Column(JSON, nullable=True)  # Final response sent to frontend
+    
     # Metadata
     tokens_consumed = Column(Integer, default=50)  # Tokens charged for this job
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -102,5 +108,10 @@ class VideoJob(Base):
             "startedAt": self.started_at.isoformat() if self.started_at else None,
             "completedAt": self.completed_at.isoformat() if self.completed_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            # Request/Response tracking
+            "frontendRequest": self.frontend_request,
+            "veoRequest": self.veo_request,
+            "veoResponse": self.veo_response,
+            "backendResponse": self.backend_response,
         }
 

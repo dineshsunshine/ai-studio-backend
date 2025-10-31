@@ -328,6 +328,77 @@
             background: #667eea;
             border-radius: 10px;
         }
+
+        /* Request/Response styling */
+        .api-exchange {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .api-exchange-header {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-exchange-header:hover {
+            color: #667eea;
+        }
+
+        .api-exchange-content {
+            display: none;
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            border-left: 3px solid #667eea;
+        }
+
+        .api-exchange-content.show {
+            display: block;
+        }
+
+        .json-viewer {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #333;
+        }
+
+        .expand-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .expand-icon.rotated {
+            transform: rotate(90deg);
+        }
+
+        .api-step {
+            margin: 10px 0;
+            padding: 12px;
+            background: #fff;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+        }
+
+        .api-step.frontend { border-left-color: #28a745; }
+        .api-step.veo { border-left-color: #17a2b8; }
+        .api-step.backend { border-left-color: #667eea; }
+
+        .api-step-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -539,6 +610,44 @@
                         ⬇️ Download Video
                     </a>
                     ` : ''}
+
+                    ${(job.frontendRequest || job.veoRequest || job.veoResponse || job.backendResponse) ? `
+                    <div class="api-exchange">
+                        <div class="api-exchange-header" onclick="toggleApiExchange('${job.id}')">
+                            <span>🔄 API Request/Response Flow</span>
+                            <span class="expand-icon" id="expand-${job.id}">▶</span>
+                        </div>
+                        <div class="api-exchange-content" id="api-content-${job.id}">
+                            ${job.frontendRequest ? `
+                            <div class="api-step frontend">
+                                <div class="api-step-title">1️⃣ Frontend → Backend</div>
+                                <div class="json-viewer">${formatJSON(job.frontendRequest)}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${job.veoRequest ? `
+                            <div class="api-step veo">
+                                <div class="api-step-title">2️⃣ Backend → Google Veo API</div>
+                                <div class="json-viewer">${formatJSON(job.veoRequest)}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${job.veoResponse ? `
+                            <div class="api-step veo">
+                                <div class="api-step-title">3️⃣ Google Veo API → Backend</div>
+                                <div class="json-viewer">${formatJSON(job.veoResponse)}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${job.backendResponse ? `
+                            <div class="api-step backend">
+                                <div class="api-step-title">4️⃣ Backend → Frontend (Final Response)</div>
+                                <div class="json-viewer">${formatJSON(job.backendResponse)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -577,6 +686,30 @@
             } else {
                 indicator.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
                 indicator.classList.remove('updating');
+            }
+        }
+
+        function toggleApiExchange(jobId) {
+            const content = document.getElementById(`api-content-${jobId}`);
+            const icon = document.getElementById(`expand-${jobId}`);
+            
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                icon.classList.remove('rotated');
+            } else {
+                content.classList.add('show');
+                icon.classList.add('rotated');
+            }
+        }
+
+        function formatJSON(obj) {
+            if (!obj) return '<em>No data</em>';
+            try {
+                return JSON.stringify(obj, null, 2)
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            } catch (e) {
+                return '<em>Error formatting JSON</em>';
             }
         }
 

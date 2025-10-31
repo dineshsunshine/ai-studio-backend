@@ -92,24 +92,12 @@ def process_video_generation(self, job_id: str):
             
             # Build configuration
             config_dict = {}
-            
-            # Add aspect ratio if specified
             if job.aspect_ratio:
-                config_dict['aspectRatio'] = job.aspect_ratio
-            
-            # Add resolution if specified  
-            if job.resolution:
-                config_dict['resolution'] = job.resolution
-            
-            # Add duration in seconds (integer, not string with 's')
+                config_dict['aspect_ratio'] = job.aspect_ratio
             if job.duration_seconds:
-                config_dict['durationSeconds'] = job.duration_seconds
+                config_dict['duration'] = f"{job.duration_seconds}s"
             
-            # Create config object
             config = types.GenerateVideosConfig(**config_dict) if config_dict else None
-            
-            if config:
-                job.add_log(f"⚙️  Config: {config_dict}", "info")
             
             # Model name should be: veo-3.1-generate-preview (not full path)
             model_name = job.model
@@ -119,14 +107,6 @@ def process_video_generation(self, job_id: str):
             # Call generate_videos with the new SDK
             job.add_log(f"🎯 Using model: {model_name}", "info")
             
-            # Capture Veo request for monitoring
-            job.veo_request = {
-                "model": model_name,
-                "prompt": job.prompt or "A beautiful video",
-                "config": config_dict if config_dict else None,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
             operation = genai_client.models.generate_videos(
                 model=model_name,
                 prompt=job.prompt or "A beautiful video",
@@ -135,15 +115,6 @@ def process_video_generation(self, job_id: str):
             
             job.google_operation_name = operation.name if hasattr(operation, 'name') else str(operation)
             job.add_log(f"✅ Operation started: {job.google_operation_name[:50]}...", "info")
-            
-            # Capture initial Veo response
-            job.veo_response = {
-                "operation_name": operation.name if hasattr(operation, 'name') else str(operation),
-                "done": operation.done if hasattr(operation, 'done') else None,
-                "timestamp": datetime.utcnow().isoformat(),
-                "status": "initiated"
-            }
-            
             job.progress_percentage = 15
             job.status_message = "Video generation in progress..."
             db.commit()
@@ -162,69 +133,55 @@ def process_video_generation(self, job_id: str):
         try:
             max_wait_seconds = 900  # 15 minutes
             start_time = time.time()
-            poll_interval = 10  # Check every 10 seconds
             
-            # Poll the operation status using client.operations.get()
-            # as per official documentation: https://ai.google.dev/gemini-api/docs/video
+            # The operation.result() method blocks until completion
+            # We'll call it with a loop to update progress
             while (time.time() - start_time) < max_wait_seconds:
-                # Check if operation is done
-                if operation.done:
-                    # Check for errors
-                    if operation.error:
-                        raise Exception(f"Video generation failed: {operation.error}")
+                try:
+                    # Try to get result with short timeout
+                    result = operation.result(timeout=10)
                     
-                    # Success! Extract video URI from response
-                    if not operation.response:
-                        raise ValueError("Operation completed but no response found")
-                    
-                    response = operation.response
+                    # Success! Extract video URI
                     video_uri = None
                     
-                    # Try to get video URI from generated_videos list
-                    if hasattr(response, 'generated_videos') and response.generated_videos:
-                        first_video = response.generated_videos[0]
-                        if hasattr(first_video, 'video'):
-                            if hasattr(first_video.video, 'uri'):
-                                video_uri = first_video.video.uri
-                            elif hasattr(first_video.video, 'url'):
-                                video_uri = first_video.video.url
+                    # Try different ways to get the URI
+                    if hasattr(result, 'generated_video'):
+                        if hasattr(result.generated_video, 'uri'):
+                            video_uri = result.generated_video.uri
+                        elif hasattr(result.generated_video, 'url'):
+                            video_uri = result.generated_video.url
+                    
+                    # Try dict format
+                    if not video_uri and hasattr(result, 'to_dict'):
+                        result_dict = result.to_dict()
+                        video_uri = result_dict.get('generated_video', {}).get('uri') or result_dict.get('generated_video', {}).get('url')
                     
                     if not video_uri:
-                        raise ValueError(f"No video URI found in response: {response}")
+                        raise ValueError(f"No video URI found in result: {result}")
                     
                     job.google_result_uri = video_uri
                     job.add_log(f"✅ Video generated! URI: {video_uri[:50]}...", "info")
-                    
-                    # Update Veo response with final result
-                    job.veo_response = {
-                        "operation_name": operation.name if hasattr(operation, 'name') else str(operation),
-                        "done": True,
-                        "video_uri": video_uri,
-                        "status": "completed",
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                    
                     job.progress_percentage = 70
                     job.status_message = "Downloading video..."
                     db.commit()
                     break
-                
-                # Not done yet, update progress and wait
-                elapsed = time.time() - start_time
-                progress = min(15 + int((elapsed / max_wait_seconds) * 50), 65)
-                if job.progress_percentage != progress:
-                    job.progress_percentage = progress
-                    job.status_message = f"Generating video... ({int(elapsed)}s elapsed)"
-                    db.commit()
-                
-                # Wait before next poll
-                time.sleep(poll_interval)
-                
-                # Refresh operation status
-                operation = genai_client.operations.get(operation)
-            
+                    
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "timeout" in error_str or "timed out" in error_str or "deadline exceeded" in error_str:
+                        # Still waiting, update progress
+                        elapsed = time.time() - start_time
+                        progress = min(15 + int((elapsed / max_wait_seconds) * 50), 65)
+                        if job.progress_percentage != progress:
+                            job.progress_percentage = progress
+                            job.status_message = f"Generating video... ({int(elapsed)}s elapsed)"
+                            db.commit()
+                        continue
+                    else:
+                        # Real error
+                        raise
             else:
-                # Timeout reached
+                # Timeout
                 raise TimeoutError("Video generation exceeded 15 minute timeout")
                 
         except Exception as e:
@@ -241,11 +198,7 @@ def process_video_generation(self, job_id: str):
         db.commit()
         
         try:
-            # Google requires API key authentication for downloading videos
-            headers = {
-                'x-goog-api-key': GOOGLE_API_KEY
-            }
-            response = requests.get(job.google_result_uri, headers=headers, stream=True, timeout=120)
+            response = requests.get(job.google_result_uri, stream=True, timeout=120)
             response.raise_for_status()
             
             # Save to temporary file
@@ -299,16 +252,6 @@ def process_video_generation(self, job_id: str):
         job.progress_percentage = 100
         job.completed_at = datetime.utcnow()
         job.add_log("🎉 Job completed successfully!", "info")
-        
-        # Capture final backend response
-        job.backend_response = {
-            "status": "SUCCEEDED",
-            "cloudinary_url": job.cloudinary_url,
-            "cloudinary_public_id": job.cloudinary_public_id,
-            "progress": 100,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
         db.commit()
         
     except Exception as e:

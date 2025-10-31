@@ -129,6 +129,23 @@ async def create_video_job(
         tokens_consumed=token_result["consumedTokens"]
     )
     
+    # Capture frontend request (for monitoring dashboard)
+    new_job.frontend_request = {
+        "prompt": prompt,
+        "model": model,
+        "resolution": resolution,
+        "aspectRatio": aspectRatio,
+        "durationSeconds": durationSeconds,
+        "initialImage": "<uploaded file>" if initialImage else None,
+        "endFrame": "<uploaded file>" if endFrame else None,
+        "referenceImages": f"<{len(referenceImages)} files>" if referenceImages else None,
+        "user": {
+            "id": str(current_user.id),
+            "email": current_user.email
+        },
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
     new_job.add_log("📝 Job created", "info")
     new_job.add_log(f"👤 User: {current_user.email}", "info")
     new_job.add_log(f"💎 Tokens consumed: {token_result['consumedTokens']}", "info")
