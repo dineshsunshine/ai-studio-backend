@@ -18,6 +18,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.request
 import urllib.error
 import sys
+import requests
 
 PROXY_PORT = 8888
 
@@ -115,81 +116,78 @@ class ProxyHandler(BaseHTTPRequestHandler):
         target_url = f"http://localhost:{target_port}{new_path}"
         
         try:
-            # Read request body if present
+            # Read request body if present (with progress logging for large bodies)
             content_length = self.headers.get('Content-Length')
             body = None
             if content_length:
                 content_length_int = int(content_length)
-                print(f"📥 Reading request body: {content_length_int / 1024 / 1024:.2f} MB")
+                print(f"📥 Reading request body: {content_length_int / 1024 / 1024:.2f} MB for {self.command} {self.path}")
                 
-                # For large requests, read in chunks to avoid blocking/timeout
-                if content_length_int > 1024 * 1024:  # > 1MB
-                    chunks = []
-                    bytes_read = 0
-                    chunk_size = 64 * 1024  # 64KB chunks
-                    
-                    while bytes_read < content_length_int:
-                        remaining = content_length_int - bytes_read
-                        to_read = min(chunk_size, remaining)
-                        chunk = self.rfile.read(to_read)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                        bytes_read += len(chunk)
-                        if bytes_read % (512 * 1024) == 0:  # Log every 512KB
-                            print(f"   📊 Read {bytes_read / 1024 / 1024:.2f} MB / {content_length_int / 1024 / 1024:.2f} MB")
-                    
-                    body = b''.join(chunks)
-                    print(f"✅ Finished reading {len(body) / 1024 / 1024:.2f} MB")
-                else:
-                    body = self.rfile.read(content_length_int)
+                # Read entire body at once (requests library will handle it properly)
+                body = self.rfile.read(content_length_int)
+                print(f"✅ Finished reading {len(body) / 1024 / 1024:.2f} MB")
             
-            # Create request
-            req = urllib.request.Request(
-                target_url,
+            # Prepare headers (excluding problematic ones)
+            headers = {}
+            for header, value in self.headers.items():
+                if header.lower() not in ['host', 'connection', 'content-length']:
+                    headers[header] = value
+            
+            # Add ngrok bypass header if requested
+            if add_ngrok_bypass:
+                headers['ngrok-skip-browser-warning'] = 'true'
+            
+            # Make request using requests library (handles large bodies better than urllib)
+            # Set a long timeout for large uploads (10 minutes)
+            print(f"🔄 Proxying to {target_url}")
+            response = requests.request(
+                method=self.command,
+                url=target_url,
+                headers=headers,
                 data=body,
-                method=self.command
+                timeout=600,  # 10 minute timeout
+                stream=True,   # Stream the response
+                allow_redirects=False
             )
             
-            # Add ngrok bypass header if requested (for responses)
-            if add_ngrok_bypass:
-                req.add_header('ngrok-skip-browser-warning', 'true')
+            # Send response status
+            self.send_response(response.status_code)
             
-            # Copy headers (except Host)
-            for header, value in self.headers.items():
-                if header.lower() not in ['host', 'connection']:
-                    req.add_header(header, value)
+            # Copy response headers
+            for header, value in response.headers.items():
+                if header.lower() not in ['connection', 'transfer-encoding', 'content-encoding']:
+                    self.send_header(header, value)
             
-            # Make request (increased timeout for large uploads like video generation)
-            with urllib.request.urlopen(req, timeout=300) as response:
-                # Send response status
-                self.send_response(response.status)
-                
-                # Copy response headers
-                for header, value in response.headers.items():
-                    if header.lower() not in ['connection', 'transfer-encoding']:
-                        self.send_header(header, value)
-                
-                # Add CORS headers
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-                
-                self.end_headers()
-                
-                # Copy response body
-                self.wfile.write(response.read())
-        
-        except urllib.error.HTTPError as e:
-            self.send_response(e.code)
-            self.send_header('Content-Type', 'application/json')
+            # Add CORS headers
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            
             self.end_headers()
-            self.wfile.write(e.read())
+            
+            # Stream response body
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    self.wfile.write(chunk)
+            
+            print(f"✅ Successfully proxied {self.command} {self.path} -> {response.status_code}")
+        
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Requests error for {self.command} {self.path}: {type(e).__name__}: {str(e)}")
+            self.send_response(502)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            error_msg = f'{{"error": "Proxy error: {str(e)}"}}'.encode()
+            self.wfile.write(error_msg)
         
         except Exception as e:
             print(f"❌ Proxy error for {self.command} {self.path}: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             self.send_response(502)
             self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             error_msg = f'{{"error": "Proxy error: {str(e)}"}}'.encode()
             self.wfile.write(error_msg)
