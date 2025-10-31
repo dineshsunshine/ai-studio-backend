@@ -79,6 +79,62 @@ async def get_subscription_info(
     )
 
 
+def consume_tokens_internal(user_id: str, operation: str, description: str, db: Session) -> dict:
+    """
+    Internal function to consume tokens without HTTP overhead.
+    Used by other endpoints (e.g., video generation) to consume tokens programmatically.
+    
+    Returns:
+        dict with keys: success, cost, availableTokens, consumedTokens, message
+    """
+    # Validate operation
+    if not is_valid_operation(operation):
+        raise ValueError(f"Invalid operation: {operation}")
+    
+    # Get operation cost
+    cost = get_operation_cost(operation)
+    
+    subscription = get_or_create_subscription(user_id, db)
+    
+    # Check if user has enough tokens
+    if not subscription.has_tokens(cost):
+        return {
+            "success": False,
+            "cost": cost,
+            "availableTokens": subscription.available_tokens,
+            "consumedTokens": subscription.consumed_tokens,
+            "message": f"Insufficient tokens. Operation '{operation}' costs {cost} tokens but you have {subscription.available_tokens}."
+        }
+    
+    # Record balance before
+    balance_before = subscription.available_tokens
+    
+    # Consume tokens
+    subscription.consume_tokens(cost)
+    
+    # Create transaction record
+    transaction = TokenTransaction(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        type="consumption",
+        amount=-cost,
+        description=description,
+        balance_before=balance_before if not subscription.is_unlimited() else -1,
+        balance_after=subscription.available_tokens if not subscription.is_unlimited() else -1,
+        admin_id=None
+    )
+    db.add(transaction)
+    db.commit()
+    
+    return {
+        "success": True,
+        "cost": cost,
+        "availableTokens": subscription.available_tokens,
+        "consumedTokens": subscription.consumed_tokens,
+        "message": f"Successfully consumed {cost} tokens for '{operation}' operation."
+    }
+
+
 @router.post("/consume", response_model=ConsumeTokensResponse)
 async def consume_tokens(
     request: ConsumeTokensRequest,

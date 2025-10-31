@@ -144,3 +144,20 @@ async def serve_shared_link(link_id: str):
         )
 
 
+@app.get("/video-monitor", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/video-monitor/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_video_monitor():
+    """Serve the video generation monitoring dashboard (public, no auth required)"""
+    html_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "video_monitor.html")
+    
+    try:
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>Video Monitor page not found</h1><p>The video monitor template is missing.</p>",
+            status_code=404
+        )
+
+

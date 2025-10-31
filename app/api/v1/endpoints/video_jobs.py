@@ -1,0 +1,283 @@
+"""
+API endpoints for video generation jobs
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from datetime import datetime
+
+from app.core.database import get_db
+from app.models.video_job import VideoJob as DBVideoJob
+from app.models.user import User
+from app.schemas.video_job import VideoJobResponse, VideoJobListResponse
+from app.api.dependencies import get_current_active_user
+from app.core.celery_app import celery_app
+from app.workers.video_worker import process_video_generation
+
+router = APIRouter()
+
+
+@router.get("/all", response_model=VideoJobListResponse)
+async def list_all_video_jobs(
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """
+    PUBLIC ENDPOINT (no auth required) - List all video jobs for monitoring.
+    
+    This is for the public video monitor dashboard.
+    """
+    query = db.query(DBVideoJob)
+    total = query.count()
+    jobs = query.order_by(DBVideoJob.created_at.desc()).offset(offset).limit(limit).all()
+    
+    return {
+        "jobs": [job.to_dict() for job in jobs],
+        "total": total
+    }
+
+
+@router.post("/", response_model=VideoJobResponse, status_code=status.HTTP_202_ACCEPTED)
+async def create_video_job(
+    prompt: Optional[str] = Form(None),
+    model: str = Form(...),
+    resolution: str = Form(...),
+    aspectRatio: str = Form(..., alias="aspectRatio"),
+    durationSeconds: Optional[int] = Form(None, alias="durationSeconds"),
+    initialImage: Optional[UploadFile] = File(None),
+    endFrame: Optional[UploadFile] = File(None),
+    referenceImages: Optional[List[UploadFile]] = File(None),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new video generation job.
+    
+    This endpoint:
+    1. Consumes 50 tokens from the user's subscription
+    2. Validates max concurrent jobs (3 per user)
+    3. Creates a job record with status PENDING
+    4. Queues the job for background processing
+    5. Returns immediately with job ID
+    """
+    
+    # 1. Check token consumption
+    from app.api.v1.endpoints.subscription import consume_tokens_internal
+    
+    token_result = consume_tokens_internal(
+        user_id=str(current_user.id),
+        operation="video_generation",
+        description=f"Video generation: {prompt[:50] if prompt else 'No prompt'}...",
+        db=db
+    )
+    
+    if not token_result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "message": token_result["message"],
+                "cost": token_result["cost"],
+                "availableTokens": token_result["availableTokens"]
+            }
+        )
+    
+    # 2. Check max concurrent jobs (3 per user)
+    running_jobs_count = db.query(DBVideoJob).filter(
+        DBVideoJob.user_id == str(current_user.id),
+        DBVideoJob.status.in_(["PENDING", "RUNNING"])
+    ).count()
+    
+    if running_jobs_count >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Maximum 3 concurrent video jobs allowed. Please wait for existing jobs to complete."
+        )
+    
+    # 3. Validate required fields
+    if not prompt and not initialImage:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either 'prompt' or 'initialImage' is required"
+        )
+    
+    if resolution not in ["720p", "1080p"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resolution must be '720p' or '1080p'"
+        )
+    
+    if aspectRatio not in ["16:9", "9:16"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aspect ratio must be '16:9' or '9:16'"
+        )
+    
+    # 4. Create job record
+    new_job = DBVideoJob(
+        user_id=str(current_user.id),
+        prompt=prompt,
+        model=model,
+        resolution=resolution,
+        aspect_ratio=aspectRatio,
+        duration_seconds=durationSeconds,
+        status="PENDING",
+        status_message="Job queued for processing",
+        tokens_consumed=token_result["consumedTokens"]
+    )
+    
+    new_job.add_log("📝 Job created", "info")
+    new_job.add_log(f"👤 User: {current_user.email}", "info")
+    new_job.add_log(f"💎 Tokens consumed: {token_result['consumedTokens']}", "info")
+    
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+    
+    # 5. Queue job for background processing
+    try:
+        process_video_generation.delay(str(new_job.id))
+        new_job.add_log("✅ Job queued for background processing", "info")
+        db.commit()
+    except Exception as e:
+        new_job.status = "FAILED"
+        new_job.error_message = f"Failed to queue job: {str(e)}"
+        new_job.add_log(f"❌ Failed to queue: {str(e)}", "error")
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to queue job: {str(e)}"
+        )
+    
+    # 6. Return job details
+    return new_job.to_dict()
+
+
+@router.get("/{job_id}", response_model=VideoJobResponse)
+async def get_video_job(
+    job_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get status and details of a specific video job.
+    """
+    job = db.query(DBVideoJob).filter(
+        DBVideoJob.id == job_id,
+        DBVideoJob.user_id == str(current_user.id)
+    ).first()
+    
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video job not found"
+        )
+    
+    return job.to_dict()
+
+
+@router.get("/", response_model=VideoJobListResponse)
+async def list_video_jobs(
+    status_filter: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List all video jobs for the current user.
+    
+    Query params:
+    - status_filter: Filter by status (PENDING, RUNNING, SUCCEEDED, FAILED)
+    - limit: Max results (default 50)
+    - offset: Pagination offset (default 0)
+    """
+    query = db.query(DBVideoJob).filter(DBVideoJob.user_id == str(current_user.id))
+    
+    if status_filter:
+        query = query.filter(DBVideoJob.status == status_filter.upper())
+    
+    total = query.count()
+    jobs = query.order_by(DBVideoJob.created_at.desc()).offset(offset).limit(limit).all()
+    
+    return {
+        "jobs": [job.to_dict() for job in jobs],
+        "total": total
+    }
+
+
+@router.get("/{job_id}/download")
+async def download_video(
+    job_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Download the completed video.
+    
+    This endpoint redirects to the Cloudinary URL for fast CDN delivery.
+    """
+    job = db.query(DBVideoJob).filter(
+        DBVideoJob.id == job_id,
+        DBVideoJob.user_id == str(current_user.id)
+    ).first()
+    
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video job not found"
+        )
+    
+    if job.status != "SUCCEEDED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Video is not ready yet. Current status: {job.status}"
+        )
+    
+    if not job.cloudinary_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Video URL not available"
+        )
+    
+    # Redirect to Cloudinary URL for fast CDN delivery
+    return RedirectResponse(url=job.cloudinary_url)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_video_job(
+    job_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a video job.
+    
+    Note: This only deletes the job record, not the video file from Cloudinary.
+    """
+    job = db.query(DBVideoJob).filter(
+        DBVideoJob.id == job_id,
+        DBVideoJob.user_id == str(current_user.id)
+    ).first()
+    
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video job not found"
+        )
+    
+    # Optional: Delete video from Cloudinary
+    # if job.cloudinary_public_id:
+    #     try:
+    #         import cloudinary.uploader
+    #         cloudinary.uploader.destroy(job.cloudinary_public_id, resource_type="video")
+    #     except:
+    #         pass
+    
+    db.delete(job)
+    db.commit()
+    
+    return None
+

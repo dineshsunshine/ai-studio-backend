@@ -6,6 +6,7 @@ from app.models.model import Model
 from app.models.look import Look
 from app.models.product import Product
 from app.models.link import Link
+from app.models.video_job import VideoJob
 
 __all__ = [
     "User", 
@@ -18,5 +19,6 @@ __all__ = [
     "Model",
     "Look",
     "Product",
-    "Link"
+    "Link",
+    "VideoJob"
 ]

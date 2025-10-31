@@ -223,3 +223,69 @@ class StorageService:
 # Global storage service instance
 storage_service = StorageService()
 
+
+def upload_video_to_cloudinary(file_path: str, job_id: str) -> dict:
+    """
+    Upload a video file to Cloudinary.
+    
+    Args:
+        file_path: Path to the video file
+        job_id: Job ID to use as public_id prefix
+    
+    Returns:
+        dict with 'url' and 'public_id'
+    """
+    # Try to use Cloudinary if available
+    if storage_service.use_cloudinary and storage_service.cloudinary_service:
+        try:
+            import cloudinary
+            import cloudinary.uploader
+            
+            # Upload video to Cloudinary
+            result = cloudinary.uploader.upload(
+                file_path,
+                resource_type="video",
+                public_id=f"videos/{job_id}",
+                folder="ai_studio",
+                overwrite=True,
+                format="mp4"
+            )
+            
+            return {
+                "url": result["secure_url"],
+                "public_id": result["public_id"]
+            }
+        except Exception as e:
+            print(f"⚠️  Cloudinary upload failed: {e}")
+            # Fall back to local storage
+    
+    # Fallback: Copy to local storage and return URL
+    import shutil
+    local_video_dir = os.path.join(storage_service.local_upload_dir, "videos")
+    os.makedirs(local_video_dir, exist_ok=True)
+    
+    local_path = os.path.join(local_video_dir, f"{job_id}.mp4")
+    shutil.copy(file_path, local_path)
+    
+    # Get public URL
+    try:
+        from app.core.config import settings
+        public_url = getattr(settings, 'NGROK_PUBLIC_URL', None)
+        if not public_url:
+            public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
+    except:
+        public_url = os.getenv("NGROK_PUBLIC_URL", os.getenv("BASE_URL", "http://localhost:8000"))
+    
+    # Determine URL format based on environment
+    if "ngrok" in public_url or "localhost:8888" in public_url:
+        public_url = public_url.rstrip('/AIStudio').rstrip('/')
+        video_url = f"{public_url}/AIStudio/assets/images/videos/{job_id}.mp4"
+    else:
+        public_url = public_url.rstrip('/')
+        video_url = f"{public_url}/assets/images/videos/{job_id}.mp4"
+    
+    return {
+        "url": video_url,
+        "public_id": f"videos/{job_id}"
+    }
+
