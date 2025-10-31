@@ -701,3 +701,120 @@ async def migrate_video_jobs_request_response_columns(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result
         )
+
+
+@router.post("/video-jobs-all-columns")
+async def migrate_video_jobs_all_columns(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Ensure all video_jobs table columns exist.
+    
+    This migration checks and adds any missing columns that might cause 500 errors.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": []
+    }
+    
+    try:
+        # Check database type
+        db_url = str(engine.url)
+        is_postgres = 'postgresql' in db_url or 'postgres' in db_url
+        
+        # List of all columns that should exist
+        required_columns = {
+            'generate_audio': 'BOOLEAN DEFAULT FALSE',
+            'frontend_request': 'JSONB',
+            'veo_request': 'JSONB',
+            'veo_response': 'JSONB',
+            'backend_response': 'JSONB',
+            'cloudinary_public_id': 'VARCHAR(255)',
+            'tokens_consumed': 'INTEGER DEFAULT 50',
+            'updated_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            'google_operation_name': 'VARCHAR(255)',
+            'google_result_uri': 'TEXT',
+        }
+        
+        # For SQLite, use different syntax
+        sqlite_types = {
+            'generate_audio': 'BOOLEAN DEFAULT 0',
+            'frontend_request': 'TEXT',
+            'veo_request': 'TEXT',
+            'veo_response': 'TEXT',
+            'backend_response': 'TEXT',
+            'cloudinary_public_id': 'VARCHAR(255)',
+            'tokens_consumed': 'INTEGER DEFAULT 50',
+            'updated_at': 'TIMESTAMP',
+            'google_operation_name': 'VARCHAR(255)',
+            'google_result_uri': 'TEXT',
+        }
+        
+        result["current_state"] = {}
+        missing_columns = []
+        
+        # Check each column
+        for col_name, col_type in required_columns.items():
+            exists = column_exists('video_jobs', col_name)
+            result["current_state"][col_name] = exists
+            if not exists:
+                missing_columns.append(col_name)
+        
+        if not missing_columns:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ All columns exist! No migration needed."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        
+        for col_name in missing_columns:
+            result["steps"].append(f"Adding {col_name} column...")
+            
+            if is_postgres:
+                col_type = required_columns[col_name]
+                if 'DEFAULT' in col_type:
+                    db.execute(text(f"ALTER TABLE video_jobs ADD COLUMN {col_name} {col_type}"))
+                else:
+                    db.execute(text(f"ALTER TABLE video_jobs ADD COLUMN {col_name} {col_type}"))
+            else:
+                col_type = sqlite_types.get(col_name, 'TEXT')
+                db.execute(text(f"ALTER TABLE video_jobs ADD COLUMN {col_name} {col_type}"))
+            
+            result["steps"].append(f"✅ Added {col_name} column")
+        
+        db.commit()
+        
+        # Verify all columns exist
+        all_exist = all(column_exists('video_jobs', col) for col in required_columns.keys())
+        
+        if all_exist:
+            result["status"] = "success"
+            result["message"] = f"✅ Migration completed successfully! Added {len(missing_columns)} column(s)."
+        else:
+            result["status"] = "warning"
+            result["message"] = "⚠️ Some columns might not have been created. Please verify."
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
