@@ -53,5 +53,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Start Celery worker
-celery -A app.core.celery_app worker --loglevel=info --concurrency=2
+# IMPORTANT: Must specify --queues=video_generation,celery to listen to the video_generation queue
+celery -A app.core.celery_app worker --loglevel=info --concurrency=2 --queues=video_generation,celery
 
