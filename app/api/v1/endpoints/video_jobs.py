@@ -19,6 +19,7 @@ from app.core.auth import get_current_active_user
 from app.core.celery_app import celery_app
 from app.workers.video_worker import process_video_generation
 from app.core.config import settings
+from app.core.storage import StorageService
 
 router = APIRouter()
 
@@ -132,31 +133,67 @@ async def create_video_job(
             detail="Aspect ratio must be '16:9' or '9:16'"
         )
     
-    # 4. Save uploaded images to temporary storage
+    # 4. Save uploaded images to Cloudinary (production) or temporary storage (local)
+    # On production, upload to Cloudinary immediately so worker can access them
+    storage_service = StorageService()
     initial_image_path = None
     end_frame_path = None
     reference_images_paths = []
     
-    job_temp_dir = os.path.join(TEMP_UPLOAD_DIR, str(uuid.uuid4()))
-    os.makedirs(job_temp_dir, exist_ok=True)
-    
-    if initialImage and initialImage.filename:
-        initial_image_path = os.path.join(job_temp_dir, f"initial_{initialImage.filename}")
-        with open(initial_image_path, "wb") as f:
-            shutil.copyfileobj(initialImage.file, f)
-    
-    if endFrame and endFrame.filename:
-        end_frame_path = os.path.join(job_temp_dir, f"end_{endFrame.filename}")
-        with open(end_frame_path, "wb") as f:
-            shutil.copyfileobj(endFrame.file, f)
-    
-    if referenceImages:
-        for idx, ref_img in enumerate(referenceImages):
-            if ref_img.filename:
-                ref_path = os.path.join(job_temp_dir, f"ref_{idx}_{ref_img.filename}")
-                with open(ref_path, "wb") as f:
-                    shutil.copyfileobj(ref_img.file, f)
-                reference_images_paths.append(ref_path)
+    # Upload to Cloudinary if enabled (production), otherwise save locally
+    if storage_service.use_cloudinary:
+        # Production: Upload to Cloudinary immediately
+        if initialImage and initialImage.filename:
+            initialImage.file.seek(0)  # Reset file pointer
+            initial_image_path = storage_service.upload_file(
+                initialImage.file,
+                f"initial_{initialImage.filename}",
+                initialImage.content_type,
+                folder="video_jobs"
+            )
+        
+        if endFrame and endFrame.filename:
+            endFrame.file.seek(0)  # Reset file pointer
+            end_frame_path = storage_service.upload_file(
+                endFrame.file,
+                f"end_{endFrame.filename}",
+                endFrame.content_type,
+                folder="video_jobs"
+            )
+        
+        if referenceImages:
+            for idx, ref_img in enumerate(referenceImages):
+                if ref_img.filename:
+                    ref_img.file.seek(0)  # Reset file pointer
+                    ref_url = storage_service.upload_file(
+                        ref_img.file,
+                        f"ref_{idx}_{ref_img.filename}",
+                        ref_img.content_type,
+                        folder="video_jobs"
+                    )
+                    reference_images_paths.append(ref_url)
+    else:
+        # Local dev: Save to temporary storage
+        job_temp_dir = os.path.join(TEMP_UPLOAD_DIR, str(uuid.uuid4()))
+        os.makedirs(job_temp_dir, exist_ok=True)
+        
+        if initialImage and initialImage.filename:
+            initial_image_path = os.path.join(job_temp_dir, f"initial_{initialImage.filename}")
+            with open(initial_image_path, "wb") as f:
+                shutil.copyfileobj(initialImage.file, f)
+        
+        if endFrame and endFrame.filename:
+            end_frame_path = os.path.join(job_temp_dir, f"end_{endFrame.filename}")
+            with open(end_frame_path, "wb") as f:
+                shutil.copyfileobj(endFrame.file, f)
+        
+        if referenceImages:
+            for idx, ref_img in enumerate(referenceImages):
+                if ref_img.filename:
+                    ref_path = os.path.join(job_temp_dir, f"ref_{idx}_{ref_img.filename}")
+                    with open(ref_path, "wb") as f:
+                        shutil.copyfileobj(ref_img.file, f)
+                    reference_images_paths.append(ref_path)
     
     # 5. Create job record
     new_job = DBVideoJob(

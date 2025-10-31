@@ -83,21 +83,41 @@ def process_video_generation(self, job_id: str):
         job.status_message = "Preparing images and calling Google Veo 3.1 API..."
         db.commit()
         
-        # 4. Upload images to Google File API (if provided)
+        # 4. Download images from Cloudinary (if URLs) or read from local filesystem
         initial_image_file = None
         end_frame_file = None
         reference_image_files = []
         
-        if job.initial_image_path and os.path.exists(job.initial_image_path):
+        def download_image(url_or_path: str) -> tuple:
+            """Download image from URL or read from local path"""
+            import mimetypes
+            
+            # Check if it's a URL (Cloudinary in production)
+            if url_or_path.startswith('http://') or url_or_path.startswith('https://'):
+                try:
+                    job.add_log(f"📥 Downloading image from Cloudinary: {url_or_path[:50]}...", "info")
+                    response = requests.get(url_or_path, timeout=30)
+                    response.raise_for_status()
+                    image_bytes = response.content
+                    mime_type = response.headers.get('content-type', 'image/png')
+                    job.add_log(f"✅ Downloaded: {len(image_bytes)} bytes, {mime_type}", "info")
+                    return image_bytes, mime_type
+                except Exception as e:
+                    job.add_log(f"⚠️  Failed to download image: {str(e)}", "warning")
+                    raise
+            else:
+                # Local file path (development)
+                if not os.path.exists(url_or_path):
+                    raise FileNotFoundError(f"Image file not found: {url_or_path}")
+                with open(url_or_path, 'rb') as f:
+                    image_bytes = f.read()
+                mime_type = mimetypes.guess_type(url_or_path)[0] or 'image/png'
+                return image_bytes, mime_type
+        
+        if job.initial_image_path:
             try:
                 job.add_log(f"📤 Preparing initial image...", "info")
-                # Read image bytes and determine MIME type
-                with open(job.initial_image_path, 'rb') as f:
-                    image_bytes = f.read()
-                
-                # Detect MIME type from file extension
-                import mimetypes
-                mime_type = mimetypes.guess_type(job.initial_image_path)[0] or 'image/png'
+                image_bytes, mime_type = download_image(job.initial_image_path)
                 
                 # Create Image object for Veo
                 initial_image_file = types.Image(
@@ -108,13 +128,10 @@ def process_video_generation(self, job_id: str):
             except Exception as e:
                 job.add_log(f"⚠️  Failed to prepare initial image: {str(e)}", "warning")
         
-        if job.end_frame_path and os.path.exists(job.end_frame_path):
+        if job.end_frame_path:
             try:
                 job.add_log(f"📤 Preparing end frame...", "info")
-                with open(job.end_frame_path, 'rb') as f:
-                    image_bytes = f.read()
-                import mimetypes
-                mime_type = mimetypes.guess_type(job.end_frame_path)[0] or 'image/png'
+                image_bytes, mime_type = download_image(job.end_frame_path)
                 end_frame_file = types.Image(
                     image_bytes=image_bytes,
                     mime_type=mime_type
