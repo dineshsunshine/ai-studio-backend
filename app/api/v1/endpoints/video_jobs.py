@@ -40,7 +40,8 @@ async def list_all_video_jobs(
     }
 
 
-@router.post("/", response_model=VideoJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("", response_model=VideoJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/", response_model=VideoJobResponse, status_code=status.HTTP_202_ACCEPTED, include_in_schema=False)
 async def create_video_job(
     prompt: Optional[str] = Form(None),
     model: str = Form(...),
