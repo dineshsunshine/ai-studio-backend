@@ -496,3 +496,83 @@ async def update_default_settings(
             detail=result
         )
 
+
+
+@router.post("/video-jobs-generate-audio")
+async def migrate_video_jobs_generate_audio(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add generate_audio column to video_jobs table.
+    
+    This migration adds the generate_audio column for the audio generation feature.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": []
+    }
+    
+    try:
+        # Check if column already exists
+        has_generate_audio = column_exists('video_jobs', 'generate_audio')
+        
+        result["current_state"] = {
+            "has_generate_audio": has_generate_audio
+        }
+        
+        # Check if migration already done
+        if has_generate_audio:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ Migration already completed! generate_audio column exists."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        result["steps"].append("Adding generate_audio column...")
+        
+        # Add generate_audio column
+        # Check database type to use correct syntax
+        db_url = str(engine.url)
+        if 'postgresql' in db_url or 'postgres' in db_url:
+            # PostgreSQL
+            db.execute(text("ALTER TABLE video_jobs ADD COLUMN generate_audio BOOLEAN DEFAULT FALSE"))
+            result["steps"].append("✅ Added generate_audio column (PostgreSQL)")
+        else:
+            # SQLite
+            db.execute(text("ALTER TABLE video_jobs ADD COLUMN generate_audio BOOLEAN DEFAULT 0"))
+            result["steps"].append("✅ Added generate_audio column (SQLite)")
+        
+        db.commit()
+        
+        # Verify
+        has_generate_audio_after = column_exists('video_jobs', 'generate_audio')
+        if has_generate_audio_after:
+            result["status"] = "success"
+            result["message"] = "✅ Migration completed successfully! generate_audio column added."
+        else:
+            result["status"] = "warning"
+            result["message"] = "⚠️ Column might not have been created. Please verify."
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
