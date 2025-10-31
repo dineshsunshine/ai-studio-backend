@@ -145,31 +145,35 @@ def process_video_generation(self, job_id: str):
         try:
             max_wait_seconds = 900  # 15 minutes
             start_time = time.time()
+            poll_interval = 10  # Check every 10 seconds
             
-            # The operation.result() method blocks until completion
-            # We'll call it with a loop to update progress
+            # Poll the operation status using client.operations.get()
+            # as per official documentation: https://ai.google.dev/gemini-api/docs/video
             while (time.time() - start_time) < max_wait_seconds:
-                try:
-                    # Try to get result with short timeout
-                    result = operation.result(timeout=10)
+                # Check if operation is done
+                if operation.done:
+                    # Check for errors
+                    if operation.error:
+                        raise Exception(f"Video generation failed: {operation.error}")
                     
-                    # Success! Extract video URI
+                    # Success! Extract video URI from response
+                    if not operation.response:
+                        raise ValueError("Operation completed but no response found")
+                    
+                    response = operation.response
                     video_uri = None
                     
-                    # Try different ways to get the URI
-                    if hasattr(result, 'generated_video'):
-                        if hasattr(result.generated_video, 'uri'):
-                            video_uri = result.generated_video.uri
-                        elif hasattr(result.generated_video, 'url'):
-                            video_uri = result.generated_video.url
-                    
-                    # Try dict format
-                    if not video_uri and hasattr(result, 'to_dict'):
-                        result_dict = result.to_dict()
-                        video_uri = result_dict.get('generated_video', {}).get('uri') or result_dict.get('generated_video', {}).get('url')
+                    # Try to get video URI from generated_videos list
+                    if hasattr(response, 'generated_videos') and response.generated_videos:
+                        first_video = response.generated_videos[0]
+                        if hasattr(first_video, 'video'):
+                            if hasattr(first_video.video, 'uri'):
+                                video_uri = first_video.video.uri
+                            elif hasattr(first_video.video, 'url'):
+                                video_uri = first_video.video.url
                     
                     if not video_uri:
-                        raise ValueError(f"No video URI found in result: {result}")
+                        raise ValueError(f"No video URI found in response: {response}")
                     
                     job.google_result_uri = video_uri
                     job.add_log(f"✅ Video generated! URI: {video_uri[:50]}...", "info")
@@ -177,23 +181,23 @@ def process_video_generation(self, job_id: str):
                     job.status_message = "Downloading video..."
                     db.commit()
                     break
-                    
-                except Exception as e:
-                    error_str = str(e).lower()
-                    if "timeout" in error_str or "timed out" in error_str or "deadline exceeded" in error_str:
-                        # Still waiting, update progress
-                        elapsed = time.time() - start_time
-                        progress = min(15 + int((elapsed / max_wait_seconds) * 50), 65)
-                        if job.progress_percentage != progress:
-                            job.progress_percentage = progress
-                            job.status_message = f"Generating video... ({int(elapsed)}s elapsed)"
-                            db.commit()
-                        continue
-                    else:
-                        # Real error
-                        raise
+                
+                # Not done yet, update progress and wait
+                elapsed = time.time() - start_time
+                progress = min(15 + int((elapsed / max_wait_seconds) * 50), 65)
+                if job.progress_percentage != progress:
+                    job.progress_percentage = progress
+                    job.status_message = f"Generating video... ({int(elapsed)}s elapsed)"
+                    db.commit()
+                
+                # Wait before next poll
+                time.sleep(poll_interval)
+                
+                # Refresh operation status
+                operation = genai_client.operations.get(operation)
+            
             else:
-                # Timeout
+                # Timeout reached
                 raise TimeoutError("Video generation exceeded 15 minute timeout")
                 
         except Exception as e:
