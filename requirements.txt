@@ -27,7 +27,7 @@ redis==5.0.1
 google-genai==1.47.0
 
 # Cloud storage
-cloudinary==1.41.3
+cloudinary==1.44.1
 
 # HTTP requests
 requests==2.31.0
