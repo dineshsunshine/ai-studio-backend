@@ -43,6 +43,11 @@ class VideoJobResponse(BaseModel):
     startedAt: Optional[str]
     completedAt: Optional[str]
     updatedAt: Optional[str]
+    # Request/Response tracking (Optional dict for flexibility)
+    frontendRequest: Optional[dict] = None
+    veoRequest: Optional[dict] = None
+    veoResponse: Optional[dict] = None
+    backendResponse: Optional[dict] = None
 
     class Config:
         from_attributes = True
