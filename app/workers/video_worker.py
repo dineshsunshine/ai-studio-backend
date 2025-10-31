@@ -141,21 +141,18 @@ def process_video_generation(self, job_id: str):
                 job.add_log(f"⚠️  Failed to prepare end frame: {str(e)}", "warning")
         
         if job.reference_images_paths:
-            for ref_path in job.reference_images_paths:
-                if os.path.exists(ref_path):
-                    try:
-                        with open(ref_path, 'rb') as f:
-                            image_bytes = f.read()
-                        import mimetypes
-                        mime_type = mimetypes.guess_type(ref_path)[0] or 'image/png'
-                        ref_file = types.Image(
-                            image_bytes=image_bytes,
-                            mime_type=mime_type
-                        )
-                        reference_image_files.append(ref_file)
-                        job.add_log(f"✅ Reference image prepared: {len(image_bytes)} bytes", "info")
-                    except Exception as e:
-                        job.add_log(f"⚠️  Failed to prepare reference image: {str(e)}", "warning")
+            for idx, ref_path_or_url in enumerate(job.reference_images_paths):
+                try:
+                    job.add_log(f"📤 Preparing reference image {idx+1}...", "info")
+                    image_bytes, mime_type = download_image(ref_path_or_url)
+                    ref_file = types.Image(
+                        image_bytes=image_bytes,
+                        mime_type=mime_type
+                    )
+                    reference_image_files.append(ref_file)
+                    job.add_log(f"✅ Reference image {idx+1} prepared: {len(image_bytes)} bytes, {mime_type}", "info")
+                except Exception as e:
+                    job.add_log(f"⚠️  Failed to prepare reference image {idx+1}: {str(e)}", "warning")
         
         # 5. Call Google Veo API using new genai SDK
         if not genai_client:
