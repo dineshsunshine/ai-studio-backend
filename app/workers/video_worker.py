@@ -1,5 +1,7 @@
 """
-Celery worker for processing video generation jobs
+Celery worker for processing video generation jobs using Google Veo 3.1
+Updated to use the new google-genai SDK as per official documentation:
+https://developers.googleblog.com/en/introducing-veo-3-1-and-new-creative-capabilities-in-the-gemini-api/
 """
 
 import os
@@ -10,9 +12,10 @@ from datetime import datetime
 from typing import Optional
 from celery import Task
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 # Load environment variables from .env file
-# This is critical for Celery workers to access GOOGLE_API_KEY
 load_dotenv()
 
 from app.core.celery_app import celery_app
@@ -22,14 +25,14 @@ from app.core.storage import upload_video_to_cloudinary
 
 # Google API configuration
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_GENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-# Validate API key is loaded
+# Validate API key and initialize client
 if not GOOGLE_API_KEY:
     print("⚠️  WARNING: GOOGLE_API_KEY is not set! Video generation will fail.")
-    print("   Please add GOOGLE_API_KEY to your .env file")
+    genai_client = None
 else:
     print(f"✅ Google API key loaded: {GOOGLE_API_KEY[:10]}...")
+    genai_client = genai.Client(api_key=GOOGLE_API_KEY)
 
 
 class VideoGenerationTask(Task):
@@ -42,13 +45,13 @@ class VideoGenerationTask(Task):
 @celery_app.task(bind=True, base=VideoGenerationTask, name="app.workers.video_worker.process_video_generation")
 def process_video_generation(self, job_id: str):
     """
-    Background task to process a video generation job.
+    Background task to process a video generation job using Google Veo 3.1.
     
     Steps:
     1. Update job status to RUNNING
-    2. Call Google Veo API to start generation
-    3. Poll Google operation until complete
-    4. Download video from Google's resultUri
+    2. Call Google Veo API using the new genai SDK
+    3. Wait for generation to complete
+    4. Download video from Google's URI
     5. Upload to Cloudinary
     6. Update job with final URL and status SUCCEEDED
     """
@@ -66,153 +69,150 @@ def process_video_generation(self, job_id: str):
         job.started_at = datetime.utcnow()
         job.status_message = "Initializing video generation..."
         job.progress_percentage = 5
-        job.add_log("🚀 Starting video generation", "info")
+        job.add_log("🚀 Starting video generation with Veo 3.1", "info")
         db.commit()
         
-        # 3. Prepare Google API request
-        job.add_log(f"📝 Prompt: {job.prompt[:100]}...", "info")
+        # 3. Log job details
+        job.add_log(f"📝 Prompt: {job.prompt[:100] if job.prompt else 'N/A'}...", "info")
         job.add_log(f"🎬 Model: {job.model}", "info")
         job.add_log(f"📐 Resolution: {job.resolution}, Aspect Ratio: {job.aspect_ratio}", "info")
-        
-        google_request_body = {
-            "prompt": job.prompt or "",
-            "model": job.model,
-            "aspectRatio": job.aspect_ratio,
-            "resolution": job.resolution,
-        }
-        
         if job.duration_seconds:
-            google_request_body["durationSeconds"] = job.duration_seconds
+            job.add_log(f"⏱️  Duration: {job.duration_seconds}s", "info")
         
         job.progress_percentage = 10
-        job.status_message = "Calling Google Veo API..."
+        job.status_message = "Calling Google Veo 3.1 API..."
         db.commit()
         
-        # 4. Call Google Veo API
+        # 4. Call Google Veo API using new genai SDK
+        if not genai_client:
+            raise Exception("GenAI client not initialized. GOOGLE_API_KEY might be missing.")
+        
         try:
-            job.add_log("☁️  Calling Google Veo API...", "info")
-            google_response = requests.post(
-                f"{GOOGLE_GENAI_BASE_URL}/models/{job.model}:generateVideos?key={GOOGLE_API_KEY}",
-                json=google_request_body,
-                timeout=60
+            job.add_log("☁️  Calling Google Veo 3.1 API...", "info")
+            
+            # Build configuration
+            config_dict = {}
+            if job.aspect_ratio:
+                config_dict['aspect_ratio'] = job.aspect_ratio
+            if job.duration_seconds:
+                config_dict['duration'] = f"{job.duration_seconds}s"
+            
+            config = types.GenerateVideosConfig(**config_dict) if config_dict else None
+            
+            # Model name should be: veo-3.1-generate-preview (not full path)
+            model_name = job.model
+            if model_name.startswith("models/"):
+                model_name = model_name.split("/")[-1]
+            
+            # Call generate_videos with the new SDK
+            job.add_log(f"🎯 Using model: {model_name}", "info")
+            
+            operation = genai_client.models.generate_videos(
+                model=model_name,
+                prompt=job.prompt or "A beautiful video",
+                config=config
             )
-            google_response.raise_for_status()
-            operation_data = google_response.json()
             
-            # Extract operation name
-            operation_name = operation_data.get("name")
-            if not operation_name:
-                raise ValueError("No operation name returned from Google API")
-            
-            job.google_operation_name = operation_name
-            job.add_log(f"✅ Google operation started: {operation_name}", "info")
+            job.google_operation_name = operation.name if hasattr(operation, 'name') else str(operation)
+            job.add_log(f"✅ Operation started: {job.google_operation_name[:50]}...", "info")
             job.progress_percentage = 15
             job.status_message = "Video generation in progress..."
             db.commit()
             
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             job.status = "FAILED"
-            job.error_message = f"Failed to call Google API: {str(e)}"
-            job.add_log(f"❌ Google API error: {str(e)}", "error")
+            job.error_message = f"Failed to start generation: {str(e)}"
+            job.add_log(f"❌ API error: {str(e)}", "error")
             job.completed_at = datetime.utcnow()
             db.commit()
             return
         
-        # 5. Poll Google operation until complete
-        job.add_log("⏳ Polling Google API for completion...", "info")
-        max_polls = 180  # 15 minutes max (5 seconds interval)
-        poll_count = 0
+        # 5. Wait for generation to complete
+        job.add_log("⏳ Waiting for video generation (this may take several minutes)...", "info")
         
-        while poll_count < max_polls:
-            try:
-                operation_response = requests.get(
-                    f"{GOOGLE_GENAI_BASE_URL}/{operation_name}?key={GOOGLE_API_KEY}",
-                    timeout=30
-                )
-                operation_response.raise_for_status()
-                operation_status = operation_response.json()
-                
-                # Check if done
-                if operation_status.get("done"):
-                    # Check for errors
-                    if "error" in operation_status:
-                        error_msg = operation_status["error"].get("message", "Unknown error")
-                        job.status = "FAILED"
-                        job.error_message = f"Google API error: {error_msg}"
-                        job.add_log(f"❌ Generation failed: {error_msg}", "error")
-                        job.completed_at = datetime.utcnow()
-                        db.commit()
-                        return
+        try:
+            max_wait_seconds = 900  # 15 minutes
+            start_time = time.time()
+            
+            # The operation.result() method blocks until completion
+            # We'll call it with a loop to update progress
+            while (time.time() - start_time) < max_wait_seconds:
+                try:
+                    # Try to get result with short timeout
+                    result = operation.result(timeout=10)
                     
-                    # Success! Extract resultUri
-                    response_data = operation_status.get("response", {})
-                    result_uri = response_data.get("resultUri")
+                    # Success! Extract video URI
+                    video_uri = None
                     
-                    if not result_uri:
-                        job.status = "FAILED"
-                        job.error_message = "No resultUri in Google response"
-                        job.add_log("❌ No video URL returned", "error")
-                        job.completed_at = datetime.utcnow()
-                        db.commit()
-                        return
+                    # Try different ways to get the URI
+                    if hasattr(result, 'generated_video'):
+                        if hasattr(result.generated_video, 'uri'):
+                            video_uri = result.generated_video.uri
+                        elif hasattr(result.generated_video, 'url'):
+                            video_uri = result.generated_video.url
                     
-                    job.google_result_uri = result_uri
-                    job.add_log(f"✅ Video generation complete! Google URI: {result_uri[:50]}...", "info")
+                    # Try dict format
+                    if not video_uri and hasattr(result, 'to_dict'):
+                        result_dict = result.to_dict()
+                        video_uri = result_dict.get('generated_video', {}).get('uri') or result_dict.get('generated_video', {}).get('url')
+                    
+                    if not video_uri:
+                        raise ValueError(f"No video URI found in result: {result}")
+                    
+                    job.google_result_uri = video_uri
+                    job.add_log(f"✅ Video generated! URI: {video_uri[:50]}...", "info")
                     job.progress_percentage = 70
-                    job.status_message = "Downloading video from Google..."
+                    job.status_message = "Downloading video..."
                     db.commit()
                     break
+                    
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "timeout" in error_str or "timed out" in error_str or "deadline exceeded" in error_str:
+                        # Still waiting, update progress
+                        elapsed = time.time() - start_time
+                        progress = min(15 + int((elapsed / max_wait_seconds) * 50), 65)
+                        if job.progress_percentage != progress:
+                            job.progress_percentage = progress
+                            job.status_message = f"Generating video... ({int(elapsed)}s elapsed)"
+                            db.commit()
+                        continue
+                    else:
+                        # Real error
+                        raise
+            else:
+                # Timeout
+                raise TimeoutError("Video generation exceeded 15 minute timeout")
                 
-                # Update progress
-                poll_count += 1
-                progress = min(15 + int((poll_count / max_polls) * 50), 65)
-                if job.progress_percentage != progress:
-                    job.progress_percentage = progress
-                    if poll_count % 12 == 0:  # Log every minute
-                        job.add_log(f"⏳ Still generating... ({poll_count * 5}s elapsed)", "info")
-                    db.commit()
-                
-                time.sleep(5)  # Poll every 5 seconds
-                
-            except requests.exceptions.RequestException as e:
-                job.add_log(f"⚠️  Polling error: {str(e)}, retrying...", "warning")
-                time.sleep(5)
-                continue
-        
-        if poll_count >= max_polls:
+        except Exception as e:
             job.status = "FAILED"
-            job.error_message = "Video generation timed out (15 minutes)"
-            job.add_log("❌ Generation timed out", "error")
+            job.error_message = f"Generation failed: {str(e)}"
+            job.add_log(f"❌ Error: {str(e)}", "error")
             job.completed_at = datetime.utcnow()
             db.commit()
             return
         
         # 6. Download video from Google
-        job.add_log("📥 Downloading video from Google...", "info")
+        job.add_log(f"📥 Downloading video from Google...", "info")
         job.progress_percentage = 75
         db.commit()
         
         try:
-            # Download to temporary file
-            video_response = requests.get(
-                f"{job.google_result_uri}?key={GOOGLE_API_KEY}",
-                stream=True,
-                timeout=300  # 5 minutes for download
-            )
-            video_response.raise_for_status()
+            response = requests.get(job.google_result_uri, stream=True, timeout=120)
+            response.raise_for_status()
             
-            # Save to temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
-                temp_file_path = temp_file.name
-                for chunk in video_response.iter_content(chunk_size=8192):
-                    temp_file.write(chunk)
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        tmp_file.write(chunk)
+                temp_file_path = tmp_file.name
             
-            job.add_log(f"✅ Video downloaded: {os.path.getsize(temp_file_path) / (1024*1024):.2f} MB", "info")
+            job.add_log(f"✅ Downloaded {os.path.getsize(temp_file_path) / 1024 / 1024:.2f} MB", "info")
             job.progress_percentage = 85
-            job.status_message = "Uploading to Cloudinary..."
             db.commit()
             
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             job.status = "FAILED"
             job.error_message = f"Failed to download video: {str(e)}"
             job.add_log(f"❌ Download error: {str(e)}", "error")
@@ -221,52 +221,49 @@ def process_video_generation(self, job_id: str):
             return
         
         # 7. Upload to Cloudinary
+        job.add_log("☁️  Uploading to storage...", "info")
+        job.progress_percentage = 90
+        job.status_message = "Uploading video to storage..."
+        db.commit()
+        
         try:
-            job.add_log("☁️  Uploading to Cloudinary...", "info")
-            cloudinary_result = upload_video_to_cloudinary(temp_file_path, job_id)
-            
+            cloudinary_result = upload_video_to_cloudinary(temp_file_path, job.id)
             job.cloudinary_url = cloudinary_result["url"]
             job.cloudinary_public_id = cloudinary_result["public_id"]
-            job.add_log(f"✅ Upload complete! URL: {job.cloudinary_url}", "info")
-            job.progress_percentage = 95
-            db.commit()
+            job.add_log(f"✅ Video uploaded: {job.cloudinary_url[:50]}...", "info")
+            
+            # Clean up temp file
+            os.remove(temp_file_path)
             
         except Exception as e:
             job.status = "FAILED"
-            job.error_message = f"Failed to upload to Cloudinary: {str(e)}"
-            job.add_log(f"❌ Cloudinary upload error: {str(e)}", "error")
+            job.error_message = f"Failed to upload video: {str(e)}"
+            job.add_log(f"❌ Upload error: {str(e)}", "error")
             job.completed_at = datetime.utcnow()
             db.commit()
-            return
-        finally:
-            # Clean up temp file
+            # Clean up temp file even on error
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-                job.add_log("🗑️  Temporary file cleaned up", "info")
+            return
         
-        # 8. Mark as succeeded
+        # 8. Success!
         job.status = "SUCCEEDED"
-        job.status_message = "Video generation completed successfully!"
+        job.status_message = "Video generation completed successfully"
         job.progress_percentage = 100
         job.completed_at = datetime.utcnow()
         job.add_log("🎉 Job completed successfully!", "info")
         db.commit()
         
-        print(f"✅ Job {job_id} completed successfully: {job.cloudinary_url}")
-        
     except Exception as e:
         # Catch-all for unexpected errors
-        print(f"❌ Unexpected error in job {job_id}: {str(e)}")
         try:
-            job = db.query(VideoJob).filter(VideoJob.id == job_id).first()
-            if job:
-                job.status = "FAILED"
-                job.error_message = f"Unexpected error: {str(e)}"
-                job.add_log(f"❌ Unexpected error: {str(e)}", "error")
-                job.completed_at = datetime.utcnow()
-                db.commit()
+            job.status = "FAILED"
+            job.error_message = f"Unexpected error: {str(e)}"
+            job.add_log(f"❌ Unexpected error: {str(e)}", "error")
+            job.completed_at = datetime.utcnow()
+            db.commit()
         except:
-            pass
+            print(f"❌ Failed to update job status: {e}")
     
     finally:
         db.close()
