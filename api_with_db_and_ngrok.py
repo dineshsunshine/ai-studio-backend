@@ -268,6 +268,21 @@ async def serve_shared_link(link_id: str):
     return FileResponse(html_path, media_type="text/html")
 
 
+@app.get("/video-monitor", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/video-monitor/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_video_monitor():
+    """Serve the video generation monitoring dashboard (public, no auth required)"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    html_path = os.path.join(os.path.dirname(__file__), "frontend", "video_monitor.html")
+    
+    if not os.path.exists(html_path):
+        raise HTTPException(status_code=404, detail="Video monitor page not found")
+    
+    return FileResponse(html_path, media_type="text/html")
+
+
 @app.get("/debug/openapi-test")
 async def test_openapi_generation():
     """Debug endpoint to test OpenAPI schema generation"""
