@@ -14,6 +14,7 @@ class VideoJobCreate(BaseModel):
     resolution: str = Field(..., description="Video resolution: '720p' or '1080p'")
     aspectRatio: str = Field(..., alias="aspectRatio", description="Aspect ratio: '16:9' or '9:16'")
     durationSeconds: Optional[int] = Field(None, alias="durationSeconds", description="Duration: 4 or 8 seconds")
+    generateAudio: Optional[bool] = Field(False, alias="generateAudio", description="Enable AI-generated audio/sound")
 
 
 class LogEntry(BaseModel):
@@ -32,6 +33,7 @@ class VideoJobResponse(BaseModel):
     resolution: str
     aspectRatio: str
     durationSeconds: Optional[int]
+    generateAudio: Optional[bool] = False
     status: str  # PENDING, RUNNING, SUCCEEDED, FAILED, CANCELLED
     statusMessage: Optional[str]
     errorMessage: Optional[str]

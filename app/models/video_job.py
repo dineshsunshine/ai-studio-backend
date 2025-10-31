@@ -6,7 +6,7 @@ Tracks job state, progress, logs, and final video URL.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
@@ -32,6 +32,7 @@ class VideoJob(Base):
     resolution = Column(String(20), nullable=False)  # '720p' or '1080p'
     aspect_ratio = Column(String(20), nullable=False)  # '16:9' or '9:16'
     duration_seconds = Column(Integer, nullable=True)  # 4 or 8
+    generate_audio = Column(Boolean, nullable=True, default=False)  # Enable audio generation
     
     # Image file paths (stored temporarily, deleted after upload to Google)
     initial_image_path = Column(String, nullable=True)
@@ -78,6 +79,8 @@ class VideoJob(Base):
 
     def add_log(self, message: str, level: str = "info"):
         """Add a log entry to the job's logs"""
+        from sqlalchemy.orm.attributes import flag_modified
+        
         if self.logs is None:
             self.logs = []
         log_entry = {
@@ -86,6 +89,9 @@ class VideoJob(Base):
             "message": message
         }
         self.logs.append(log_entry)
+        
+        # Critical: Tell SQLAlchemy that JSONB column changed
+        flag_modified(self, 'logs')
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -97,6 +103,7 @@ class VideoJob(Base):
             "resolution": self.resolution,
             "aspectRatio": self.aspect_ratio,
             "durationSeconds": self.duration_seconds,
+            "generateAudio": self.generate_audio or False,
             "status": self.status,
             "statusMessage": self.status_message,
             "errorMessage": self.error_message,

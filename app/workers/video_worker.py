@@ -90,29 +90,55 @@ def process_video_generation(self, job_id: str):
         
         if job.initial_image_path and os.path.exists(job.initial_image_path):
             try:
-                job.add_log(f"📤 Uploading initial image to Google...", "info")
-                initial_image_file = genai_client.files.upload(path=job.initial_image_path)
-                job.add_log(f"✅ Initial image uploaded: {initial_image_file.name}", "info")
+                job.add_log(f"📤 Preparing initial image...", "info")
+                # Read image bytes and determine MIME type
+                with open(job.initial_image_path, 'rb') as f:
+                    image_bytes = f.read()
+                
+                # Detect MIME type from file extension
+                import mimetypes
+                mime_type = mimetypes.guess_type(job.initial_image_path)[0] or 'image/png'
+                
+                # Create Image object for Veo
+                initial_image_file = types.Image(
+                    image_bytes=image_bytes,
+                    mime_type=mime_type
+                )
+                job.add_log(f"✅ Initial image prepared: {len(image_bytes)} bytes, {mime_type}", "info")
             except Exception as e:
-                job.add_log(f"⚠️  Failed to upload initial image: {str(e)}", "warning")
+                job.add_log(f"⚠️  Failed to prepare initial image: {str(e)}", "warning")
         
         if job.end_frame_path and os.path.exists(job.end_frame_path):
             try:
-                job.add_log(f"📤 Uploading end frame to Google...", "info")
-                end_frame_file = genai_client.files.upload(path=job.end_frame_path)
-                job.add_log(f"✅ End frame uploaded: {end_frame_file.name}", "info")
+                job.add_log(f"📤 Preparing end frame...", "info")
+                with open(job.end_frame_path, 'rb') as f:
+                    image_bytes = f.read()
+                import mimetypes
+                mime_type = mimetypes.guess_type(job.end_frame_path)[0] or 'image/png'
+                end_frame_file = types.Image(
+                    image_bytes=image_bytes,
+                    mime_type=mime_type
+                )
+                job.add_log(f"✅ End frame prepared: {len(image_bytes)} bytes, {mime_type}", "info")
             except Exception as e:
-                job.add_log(f"⚠️  Failed to upload end frame: {str(e)}", "warning")
+                job.add_log(f"⚠️  Failed to prepare end frame: {str(e)}", "warning")
         
         if job.reference_images_paths:
             for ref_path in job.reference_images_paths:
                 if os.path.exists(ref_path):
                     try:
-                        ref_file = genai_client.files.upload(path=ref_path)
+                        with open(ref_path, 'rb') as f:
+                            image_bytes = f.read()
+                        import mimetypes
+                        mime_type = mimetypes.guess_type(ref_path)[0] or 'image/png'
+                        ref_file = types.Image(
+                            image_bytes=image_bytes,
+                            mime_type=mime_type
+                        )
                         reference_image_files.append(ref_file)
-                        job.add_log(f"✅ Reference image uploaded: {ref_file.name}", "info")
+                        job.add_log(f"✅ Reference image prepared: {len(image_bytes)} bytes", "info")
                     except Exception as e:
-                        job.add_log(f"⚠️  Failed to upload reference image: {str(e)}", "warning")
+                        job.add_log(f"⚠️  Failed to prepare reference image: {str(e)}", "warning")
         
         # 5. Call Google Veo API using new genai SDK
         if not genai_client:
@@ -136,17 +162,21 @@ def process_video_generation(self, job_id: str):
             if job.duration_seconds:
                 config_dict['durationSeconds'] = job.duration_seconds
             
-            # Add initial image if uploaded
-            if initial_image_file:
-                config_dict['initialImage'] = initial_image_file
-                job.add_log(f"🖼️  Using initial image: {initial_image_file.name}", "info")
+            # Add audio generation option if specified
+            if job.generate_audio:
+                config_dict['generateAudio'] = True
+                job.add_log("🔊 Audio generation enabled", "info")
             
-            # Add end frame if uploaded
+            # Log which images are being used (initial image goes as top-level param, not in config)
+            if initial_image_file:
+                job.add_log(f"🖼️  Using initial image (Image object)", "info")
+            
+            # Add end frame to config if uploaded
             if end_frame_file:
                 config_dict['lastFrame'] = end_frame_file
-                job.add_log(f"🖼️  Using end frame: {end_frame_file.name}", "info")
+                job.add_log(f"🖼️  Using end frame (Image object)", "info")
             
-            # Add reference images if uploaded
+            # Add reference images to config if uploaded
             if reference_image_files:
                 config_dict['referenceImages'] = reference_image_files
                 job.add_log(f"🖼️  Using {len(reference_image_files)} reference image(s)", "info")
@@ -167,24 +197,26 @@ def process_video_generation(self, job_id: str):
             
             # Capture Veo request for monitoring
             veo_config_for_log = dict(config_dict) if config_dict else {}
-            # Replace file objects with their names for logging
-            if 'initialImage' in veo_config_for_log:
-                veo_config_for_log['initialImage'] = initial_image_file.name if initial_image_file else None
+            # Replace Image objects with descriptors for logging
             if 'lastFrame' in veo_config_for_log:
-                veo_config_for_log['lastFrame'] = end_frame_file.name if end_frame_file else None
+                veo_config_for_log['lastFrame'] = "Image object" if end_frame_file else None
             if 'referenceImages' in veo_config_for_log:
-                veo_config_for_log['referenceImages'] = [f.name for f in reference_image_files]
+                veo_config_for_log['referenceImages'] = [f"Image {i+1}" for i in range(len(reference_image_files))]
             
             job.veo_request = {
                 "model": model_name,
                 "prompt": job.prompt or "A beautiful video",
+                "image": "Image object" if initial_image_file else None,  # Top-level param
                 "config": veo_config_for_log,
                 "timestamp": datetime.utcnow().isoformat()
             }
+            db.commit()
             
+            # Call Google Veo 3.1 API with image parameter
             operation = genai_client.models.generate_videos(
                 model=model_name,
                 prompt=job.prompt or "A beautiful video",
+                image=initial_image_file,  # Pass initial image as top-level parameter
                 config=config
             )
             
