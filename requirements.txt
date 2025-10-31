@@ -32,5 +32,8 @@ cloudinary==1.44.1
 # HTTP requests
 requests==2.31.0
 
+# Ngrok (for local development, optional in production)
+pyngrok==7.0.0
+
 # Database migrations (optional but recommended)
 alembic==1.13.2
