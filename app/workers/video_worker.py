@@ -91,13 +91,9 @@ def process_video_generation(self, job_id: str):
             job.add_log("☁️  Calling Google Veo 3.1 API...", "info")
             
             # Build configuration
-            config_dict = {}
-            if job.aspect_ratio:
-                config_dict['aspect_ratio'] = job.aspect_ratio
-            if job.duration_seconds:
-                config_dict['duration'] = f"{job.duration_seconds}s"
-            
-            config = types.GenerateVideosConfig(**config_dict) if config_dict else None
+            # Note: GenerateVideosConfig only supports specific params like reference_images, last_frame
+            # Duration and aspect_ratio are handled by the model itself via prompt or aren't configurable
+            config = None  # No config needed for basic text-to-video generation
             
             # Model name should be: veo-3.1-generate-preview (not full path)
             model_name = job.model
