@@ -119,7 +119,30 @@ class ProxyHandler(BaseHTTPRequestHandler):
             content_length = self.headers.get('Content-Length')
             body = None
             if content_length:
-                body = self.rfile.read(int(content_length))
+                content_length_int = int(content_length)
+                print(f"📥 Reading request body: {content_length_int / 1024 / 1024:.2f} MB")
+                
+                # For large requests, read in chunks to avoid blocking/timeout
+                if content_length_int > 1024 * 1024:  # > 1MB
+                    chunks = []
+                    bytes_read = 0
+                    chunk_size = 64 * 1024  # 64KB chunks
+                    
+                    while bytes_read < content_length_int:
+                        remaining = content_length_int - bytes_read
+                        to_read = min(chunk_size, remaining)
+                        chunk = self.rfile.read(to_read)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        bytes_read += len(chunk)
+                        if bytes_read % (512 * 1024) == 0:  # Log every 512KB
+                            print(f"   📊 Read {bytes_read / 1024 / 1024:.2f} MB / {content_length_int / 1024 / 1024:.2f} MB")
+                    
+                    body = b''.join(chunks)
+                    print(f"✅ Finished reading {len(body) / 1024 / 1024:.2f} MB")
+                else:
+                    body = self.rfile.read(content_length_int)
             
             # Create request
             req = urllib.request.Request(
@@ -310,6 +333,12 @@ def main():
     print("✨ Press Ctrl+C to stop\n")
     
     server = HTTPServer(('', PROXY_PORT), ProxyHandler)
+    
+    # Set socket timeout to 10 minutes for large uploads (like video generation)
+    # This prevents "Broken pipe" errors when reading large request bodies
+    server.socket.settimeout(600)
+    print(f"⏱️  Socket timeout set to: 600 seconds (10 minutes)")
+    print(f"📦 Max request size: Unlimited (chunked reading for >1MB)\n")
     
     try:
         server.serve_forever()
