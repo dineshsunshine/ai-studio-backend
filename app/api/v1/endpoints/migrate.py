@@ -576,3 +576,128 @@ async def migrate_video_jobs_generate_audio(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result
         )
+
+
+@router.post("/video-jobs-request-response-columns")
+async def migrate_video_jobs_request_response_columns(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add request/response tracking columns to video_jobs table.
+    
+    This migration adds:
+    - frontend_request (JSON)
+    - veo_request (JSON)
+    - veo_response (JSON)
+    - backend_response (JSON)
+    
+    These columns are used for monitoring and debugging video generation jobs.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": []
+    }
+    
+    try:
+        # Check which columns exist
+        has_frontend_request = column_exists('video_jobs', 'frontend_request')
+        has_veo_request = column_exists('video_jobs', 'veo_request')
+        has_veo_response = column_exists('video_jobs', 'veo_response')
+        has_backend_response = column_exists('video_jobs', 'backend_response')
+        
+        result["current_state"] = {
+            "has_frontend_request": has_frontend_request,
+            "has_veo_request": has_veo_request,
+            "has_veo_response": has_veo_response,
+            "has_backend_response": has_backend_response
+        }
+        
+        # Check if migration already done
+        if has_frontend_request and has_veo_request and has_veo_response and has_backend_response:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ Migration already completed! All request/response columns exist."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        
+        # Check database type
+        db_url = str(engine.url)
+        is_postgres = 'postgresql' in db_url or 'postgres' in db_url
+        
+        # Add frontend_request column
+        if not has_frontend_request:
+            result["steps"].append("Adding frontend_request column...")
+            if is_postgres:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN frontend_request JSONB"))
+            else:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN frontend_request TEXT"))
+            result["steps"].append("✅ Added frontend_request column")
+        
+        # Add veo_request column
+        if not has_veo_request:
+            result["steps"].append("Adding veo_request column...")
+            if is_postgres:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN veo_request JSONB"))
+            else:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN veo_request TEXT"))
+            result["steps"].append("✅ Added veo_request column")
+        
+        # Add veo_response column
+        if not has_veo_response:
+            result["steps"].append("Adding veo_response column...")
+            if is_postgres:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN veo_response JSONB"))
+            else:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN veo_response TEXT"))
+            result["steps"].append("✅ Added veo_response column")
+        
+        # Add backend_response column
+        if not has_backend_response:
+            result["steps"].append("Adding backend_response column...")
+            if is_postgres:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN backend_response JSONB"))
+            else:
+                db.execute(text("ALTER TABLE video_jobs ADD COLUMN backend_response TEXT"))
+            result["steps"].append("✅ Added backend_response column")
+        
+        db.commit()
+        
+        # Verify
+        has_all = (
+            column_exists('video_jobs', 'frontend_request') and
+            column_exists('video_jobs', 'veo_request') and
+            column_exists('video_jobs', 'veo_response') and
+            column_exists('video_jobs', 'backend_response')
+        )
+        
+        if has_all:
+            result["status"] = "success"
+            result["message"] = "✅ Migration completed successfully! All request/response columns added."
+        else:
+            result["status"] = "warning"
+            result["message"] = "⚠️ Some columns might not have been created. Please verify."
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
