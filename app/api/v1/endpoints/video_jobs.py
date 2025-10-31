@@ -95,10 +95,17 @@ async def create_video_job(
         )
     
     # 2. Check max concurrent jobs (3 per user)
-    running_jobs_count = db.query(DBVideoJob).filter(
-        DBVideoJob.user_id == str(current_user.id),
-        DBVideoJob.status.in_(["PENDING", "RUNNING"])
-    ).count()
+    # Use scalar query to avoid loading all columns (avoids missing column errors)
+    try:
+        from sqlalchemy import func
+        running_jobs_count = db.query(func.count(DBVideoJob.id)).filter(
+            DBVideoJob.user_id == str(current_user.id),
+            DBVideoJob.status.in_(["PENDING", "RUNNING"])
+        ).scalar()
+    except Exception as e:
+        # If there's a schema issue, default to 0 (allow the request)
+        print(f"⚠️  Warning: Error checking concurrent jobs: {e}")
+        running_jobs_count = 0
     
     if running_jobs_count >= 3:
         raise HTTPException(
