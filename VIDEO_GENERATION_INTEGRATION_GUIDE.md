@@ -110,6 +110,8 @@ Create a new video generation job.
 | `resolution` | string | Yes | '720p' or '1080p' |
 | `aspectRatio` | string | Yes | '16:9' or '9:16' |
 | `durationSeconds` | number | No | 4 or 8 seconds |
+| `mockMode` | string | **Yes** | **REQUIRED**: 'true' to skip Veo API (test mode), 'false' to use real Veo API |
+| `generateAudio` | boolean | No | Enable AI-generated audio/sound (default: false) |
 | `initialImage` | file | No | Starting frame image |
 | `endFrame` | file | No | Ending frame image |
 | `referenceImages` | file[] | No | Up to 3 reference images |

@@ -34,6 +34,7 @@ class VideoJobResponse(BaseModel):
     aspectRatio: str
     durationSeconds: Optional[int]
     generateAudio: Optional[bool] = False
+    mockMode: bool = Field(..., alias="mockMode", description="Mock mode flag (required): true to skip Veo API, false to use real Veo API")
     status: str  # PENDING, RUNNING, SUCCEEDED, FAILED, CANCELLED
     statusMessage: Optional[str]
     errorMessage: Optional[str]

@@ -1,19 +1,18 @@
 # Video Generation Mock Mode - Frontend Integration Prompt
 
-Add a `mockMode` parameter to your video generation API calls to enable testing mode without hitting the paid Google Veo API.
+**IMPORTANT:** `mockMode` is now **REQUIRED** in all video generation API calls.
 
-## Quick Integration
-
-When creating a video job via `POST /api/v1/video-jobs`, add `mockMode: 'true'` to your FormData:
+When creating a video job via `POST /api/v1/video-jobs`, you **MUST** include `mockMode` in your FormData:
 
 ```javascript
-formData.append('mockMode', 'true');  // Enable mock mode (skips Veo API)
+formData.append('mockMode', 'true');   // REQUIRED: 'true' to skip Veo API, 'false' to use Veo API
 // ... other fields ...
 ```
 
 **Behavior:**
 - `mockMode: 'true'` → Skips Google Veo API, returns test video after 8-15 seconds
-- `mockMode: 'false'` or omitted → Normal video generation via Google Veo API
+- `mockMode: 'false'` → Normal video generation via Google Veo API
+- **Missing `mockMode`** → API will return `400 Bad Request` error
 
 **Details:**
 - Mock mode still consumes 50 tokens (simulates real behavior)

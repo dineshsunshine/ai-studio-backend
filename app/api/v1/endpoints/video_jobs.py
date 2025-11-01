@@ -58,7 +58,7 @@ async def create_video_job(
     aspectRatio: str = Form(..., alias="aspectRatio"),
     durationSeconds: Optional[int] = Form(None, alias="durationSeconds"),
     generateAudio: Optional[bool] = Form(False, alias="generateAudio"),
-    mockMode: Optional[str] = Form("false", alias="mockMode"),  # FormData sends as string
+    mockMode: str = Form(..., alias="mockMode", description="Mock mode: 'true' to skip Veo API and return test video, 'false' to use real Veo API"),  # FormData sends as string, required
     initialImage: Optional[UploadFile] = File(None),
     endFrame: Optional[UploadFile] = File(None),
     referenceImages: Optional[List[UploadFile]] = File(None),
@@ -67,6 +67,11 @@ async def create_video_job(
 ):
     """
     Create a new video generation job.
+    
+    **Required Parameters:**
+    - `mockMode`: Must be 'true' or 'false'
+      - 'true': Skip Google Veo API, return test video after 8-15 seconds
+      - 'false': Use real Google Veo API for video generation
     
     This endpoint:
     1. Consumes 50 tokens from the user's subscription
@@ -115,11 +120,10 @@ async def create_video_job(
             detail="Maximum 3 concurrent video jobs allowed. Please wait for existing jobs to complete."
         )
     
-    # 2.5. Convert mockMode string to boolean (FormData sends strings)
-    mock_mode_bool = False
-    if mockMode:
-        mock_mode_bool = str(mockMode).lower() in ['true', '1', 'yes', 'on']
-        print(f"🎭 Mock mode received: {mockMode} (type: {type(mockMode)}) → converted to: {mock_mode_bool}")
+    # 2.5. Convert mockMode string to boolean (FormData sends strings, now required)
+    # mockMode is now mandatory, so always process it
+    mock_mode_bool = str(mockMode).lower() in ['true', '1', 'yes', 'on']
+    print(f"🎭 Mock mode received: {mockMode} (type: {type(mockMode)}) → converted to: {mock_mode_bool}")
     print(f"🎭 Final mock_mode_bool value: {mock_mode_bool} (will be stored in DB)")
     
     # 3. Validate required fields
