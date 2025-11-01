@@ -119,6 +119,8 @@ async def create_video_job(
     mock_mode_bool = False
     if mockMode:
         mock_mode_bool = str(mockMode).lower() in ['true', '1', 'yes', 'on']
+        print(f"🎭 Mock mode received: {mockMode} (type: {type(mockMode)}) → converted to: {mock_mode_bool}")
+    print(f"🎭 Final mock_mode_bool value: {mock_mode_bool} (will be stored in DB)")
     
     # 3. Validate required fields
     if not prompt and not initialImage:

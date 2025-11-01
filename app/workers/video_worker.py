@@ -69,7 +69,9 @@ def process_video_generation(self, job_id: str):
         job.started_at = datetime.utcnow()
         
         # Check if mock mode is enabled
+        print(f"🎭 Worker checking mock_mode: {job.mock_mode} (type: {type(job.mock_mode)})")
         if job.mock_mode:
+            print(f"🎭✅ Mock mode ENABLED - skipping Veo API")
             job.status_message = "Mock mode: Simulating video generation..."
             job.progress_percentage = 5
             job.add_log("🎭 Starting MOCK video generation (skipping Google Veo API)", "info")
