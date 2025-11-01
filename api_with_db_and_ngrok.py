@@ -150,6 +150,7 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 from fastapi.responses import HTMLResponse
 
 @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/api/v1/docs", response_class=HTMLResponse, include_in_schema=False)
 async def custom_swagger_ui():
     """Custom Swagger UI that works correctly behind reverse proxy"""
     return """
