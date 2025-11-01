@@ -2,13 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI Studio">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="description" content="Luxury Lookbook - Curated Fashion Looks">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230a0a0a' width='180' height='180'/><text x='50%' y='50%' font-size='80' fill='%23fff' text-anchor='middle' dominant-baseline='central' font-family='system-ui'>AI</text></svg>">
     <title>Luxury Lookbook</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-user-scalable: no;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -19,6 +34,11 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             transition: background-color 0.3s ease, color 0.3s ease;
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh; /* 100% Dynamic viewport height for mobile */
+            overflow: hidden;
         }
 
         /* Light Mode Styles */
@@ -82,8 +102,8 @@
             border-color: transparent;
         }
 
-        body.light-mode .product-item:hover {
-            background: rgba(0, 0, 0, 0.05);
+        body.light-mode .product-item:active {
+            background: rgba(0, 0, 0, 0.08);
             border-color: rgba(0, 0, 0, 0.1);
         }
 
@@ -92,12 +112,16 @@
             color: rgba(0, 0, 0, 0.5);
         }
 
+        body.light-mode .mobile-nav-dots {
+            background: rgba(0, 0, 0, 0.05);
+            border-top-color: rgba(0, 0, 0, 0.1);
+        }
+
         body.light-mode .nav-dot {
             background: rgba(0, 0, 0, 0.2);
         }
 
-        body.light-mode .nav-dot.active,
-        body.light-mode .nav-dot:hover {
+        body.light-mode .nav-dot.active {
             background: #1a1a1a;
         }
 
@@ -111,8 +135,19 @@
             color: #1a1a1a;
         }
 
-        body.light-mode .theme-toggle:hover {
+        body.light-mode .theme-toggle:active {
             background: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .product-cta {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.15);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .product-cta:active {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.25);
         }
 
         /* Loading Screen */
@@ -121,7 +156,8 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100vh;
+            height: 100%;
+            height: 100dvh;
             background: #0a0a0a;
             display: flex;
             flex-direction: column;
@@ -163,14 +199,17 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 100vh;
+            height: 100%;
+            height: 100dvh;
             background: #0a0a0a;
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px;
+            padding: 40px 20px;
             text-align: center;
+            z-index: 9998;
+            safe-area-inset: env(safe-area-inset-bottom);
         }
 
         .error-screen.show {
@@ -199,10 +238,14 @@
         /* Main Container */
         .container {
             display: none;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
             overflow-y: scroll;
+            overflow-x: hidden;
             scroll-snap-type: y mandatory;
             scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
         }
 
         .container.show {
@@ -220,7 +263,9 @@
 
         /* Cover Page */
         .cover-page {
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -231,42 +276,44 @@
             text-align: center;
             position: relative;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            padding-top: max(60px, env(safe-area-inset-top));
+            padding-bottom: max(60px, env(safe-area-inset-bottom));
         }
 
         .cover-image {
             width: 100%;
             max-width: 800px;
-            height: 60vh;
+            height: 50vh;
             object-fit: cover;
             border-radius: 4px;
-            margin-bottom: 60px;
+            margin-bottom: 40px;
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
             animation: fadeInUp 1s ease-out;
         }
 
         .cover-title {
-            font-size: clamp(48px, 8vw, 96px);
+            font-size: clamp(36px, 8vw, 96px);
             font-weight: 300;
             letter-spacing: -2px;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             line-height: 1.1;
             animation: fadeInUp 1s ease-out 0.2s backwards;
         }
 
         .cover-description {
-            font-size: clamp(16px, 2vw, 20px);
+            font-size: clamp(14px, 2vw, 20px);
             font-weight: 300;
             color: rgba(255, 255, 255, 0.6);
             max-width: 600px;
             letter-spacing: 0.5px;
             line-height: 1.6;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             animation: fadeInUp 1s ease-out 0.4s backwards;
         }
 
         .scroll-hint {
             position: absolute;
-            bottom: 40px;
+            bottom: 60px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -274,6 +321,9 @@
             align-items: center;
             animation: fadeInUp 1s ease-out 0.6s backwards, bounce 2s ease-in-out infinite;
             cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .scroll-hint-text {
@@ -281,7 +331,7 @@
             letter-spacing: 2px;
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.4);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .scroll-arrow {
@@ -299,14 +349,18 @@
 
         /* Look Page */
         .look-page {
-            min-height: 100vh;
+            width: 100%;
+            min-height: 100%;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
             scroll-snap-align: start;
             scroll-snap-stop: always;
-            padding: 40px;
+            padding: 40px 20px;
             position: relative;
+            padding-top: max(40px, env(safe-area-inset-top));
+            padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 80px));
         }
 
         .look-page::before {
@@ -326,9 +380,9 @@
             gap: 80px;
             max-width: 1400px;
             width: 100%;
-            min-height: 90vh;
             align-items: flex-start;
-            padding-top: 5vh;
+            position: relative;
+            z-index: 1;
         }
 
         .look-image-container {
@@ -337,6 +391,7 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            min-height: 60vh;
         }
 
         .look-image {
@@ -348,16 +403,14 @@
             transition: transform 0.3s ease;
         }
 
-        .look-image:hover {
-            transform: scale(1.02);
+        .look-image:active {
+            transform: scale(1.01);
         }
 
         .look-details {
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
-            min-height: 100%;
-            padding: 60px 40px 120px 40px; /* Top, Right, Bottom (extra for footer), Left */
         }
 
         .look-number {
@@ -370,10 +423,10 @@
         }
 
         .look-title {
-            font-size: clamp(36px, 5vw, 64px);
+            font-size: clamp(32px, 5vw, 64px);
             font-weight: 300;
             letter-spacing: -1px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             line-height: 1.1;
         }
 
@@ -381,7 +434,7 @@
             font-size: 16px;
             line-height: 1.8;
             color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 48px;
+            margin-bottom: 40px;
             font-weight: 300;
             letter-spacing: 0.3px;
         }
@@ -396,36 +449,37 @@
             letter-spacing: 3px;
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.4);
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             font-weight: 400;
         }
 
         .products-grid {
             display: grid;
-            gap: 24px;
+            gap: 16px;
         }
 
         .product-item {
             display: grid;
-            grid-template-columns: 80px 1fr;
-            gap: 20px;
-            padding: 16px;
+            grid-template-columns: 70px 1fr;
+            gap: 16px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.03);
             border-radius: 2px;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
             border: 1px solid transparent;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .product-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.1);
-            transform: translateX(8px);
+        .product-item:active {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: scale(0.98);
         }
 
         .product-thumbnail {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             object-fit: cover;
             border-radius: 2px;
         }
@@ -437,71 +491,61 @@
         }
 
         .product-name {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 400;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             letter-spacing: 0.5px;
         }
 
         .product-details {
-            font-size: 13px;
+            font-size: 12px;
             color: rgba(255, 255, 255, 0.5);
             line-height: 1.6;
         }
 
         .product-sku {
-            font-size: 11px;
+            font-size: 10px;
             color: rgba(255, 255, 255, 0.3);
             letter-spacing: 1px;
             text-transform: uppercase;
-            margin-top: 8px;
+            margin-top: 6px;
         }
 
         .product-cta {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            margin-top: 12px;
-            padding: 8px 20px;
+            margin-top: 10px;
+            padding: 8px 16px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 2px;
             color: #ffffff;
             text-decoration: none;
-            font-size: 12px;
+            font-size: 11px;
             letter-spacing: 1px;
             text-transform: uppercase;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .product-cta:hover {
+        .product-cta:active {
             background: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.4);
-            transform: translateY(-2px);
+            transform: scale(0.96);
         }
 
         .product-cta-arrow {
             font-size: 14px;
-            transition: transform 0.3s ease;
+            transition: transform 0.2s ease;
         }
 
-        .product-cta:hover .product-cta-arrow {
-            transform: translateX(4px);
+        .product-cta:active .product-cta-arrow {
+            transform: translateX(2px);
         }
 
-        body.light-mode .product-cta {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.15);
-            color: #1a1a1a;
-        }
-
-        body.light-mode .product-cta:hover {
-            background: rgba(0, 0, 0, 0.1);
-            border-color: rgba(0, 0, 0, 0.25);
-        }
-
-        /* Page Navigation */
+        /* Desktop Navigation */
         .page-nav {
             position: fixed;
             right: 40px;
@@ -521,6 +565,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .nav-dot::before {
@@ -539,18 +584,51 @@
             height: 32px;
         }
 
-        .nav-dot:hover {
+        .nav-dot:active {
             background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav-dots {
+            position: fixed;
+            bottom: env(safe-area-inset-bottom);
+            left: 0;
+            right: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+            background: rgba(10, 10, 10, 0.8);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .mobile-nav-dots.show {
+            display: flex;
+        }
+
+        .mobile-nav-dots .nav-dot {
+            width: 6px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mobile-nav-dots .nav-dot.active {
+            width: 8px;
+            height: 8px;
+            background: #ffffff;
         }
 
         /* Theme Toggle */
         .theme-toggle {
             position: fixed;
-            top: 40px;
-            right: 40px;
+            top: 16px;
+            right: 16px;
             z-index: 200;
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -560,11 +638,13 @@
             cursor: pointer;
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
+            -webkit-tap-highlight-color: transparent;
+            top: max(16px, env(safe-area-inset-top));
         }
 
-        .theme-toggle:hover {
+        .theme-toggle:active {
             background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.1);
+            transform: scale(0.95);
         }
 
         .theme-icon {
@@ -572,7 +652,7 @@
             transition: transform 0.3s ease;
         }
 
-        .theme-toggle:hover .theme-icon {
+        .theme-toggle:active .theme-icon {
             transform: rotate(20deg);
         }
 
@@ -582,16 +662,18 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            padding: 24px 40px;
+            padding: 16px 20px;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(to top, rgba(10, 10, 10, 0.95), transparent);
             z-index: 50;
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 2px;
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
         }
 
         /* Animations */
@@ -606,67 +688,94 @@
             }
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        /* Desktop Responsive Design */
+        @media (max-width: 1280px) {
+            .look-content {
+                gap: 60px;
+            }
+
+            .page-nav {
+                right: 30px;
+            }
         }
 
-        /* Responsive Design */
         @media (max-width: 1024px) {
             .look-content {
                 grid-template-columns: 1fr;
                 gap: 40px;
-                height: auto;
-                padding: 60px 0;
+                padding: 0;
             }
 
             .look-image-container {
-                height: 50vh;
+                min-height: 50vh;
             }
 
             .look-details {
-                padding: 0 20px;
+                padding: 0;
             }
 
             .page-nav {
                 right: 20px;
             }
-
-            .theme-toggle {
-                top: 20px;
-                right: 20px;
-                width: 44px;
-                height: 44px;
-            }
-
-            .footer {
-                padding: 20px;
-                font-size: 9px;
-            }
         }
 
-        @media (max-width: 640px) {
+        /* Mobile Responsive Design */
+        @media (max-width: 768px) {
             .cover-page {
                 padding: 40px 20px;
             }
 
             .cover-image {
-                height: 40vh;
-                margin-bottom: 40px;
+                height: 35vh;
+                margin-bottom: 30px;
+            }
+
+            .cover-title {
+                font-size: clamp(28px, 7vw, 48px);
+                margin-bottom: 12px;
+            }
+
+            .cover-description {
+                font-size: clamp(13px, 1.8vw, 16px);
+                margin-bottom: 20px;
+            }
+
+            .scroll-hint {
+                bottom: 40px;
             }
 
             .look-page {
-                padding: 20px;
+                padding: 30px 16px;
+                padding-bottom: max(100px, calc(env(safe-area-inset-bottom) + 100px));
+            }
+
+            .look-content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .look-image-container {
+                min-height: 40vh;
+            }
+
+            .look-title {
+                font-size: clamp(24px, 5vw, 40px);
+                margin-bottom: 16px;
+            }
+
+            .look-notes {
+                font-size: 14px;
+                margin-bottom: 30px;
             }
 
             .products-grid {
-                gap: 16px;
+                gap: 12px;
             }
 
             .product-item {
                 grid-template-columns: 60px 1fr;
-                gap: 16px;
-                padding: 12px;
+                gap: 12px;
+                padding: 10px;
             }
 
             .product-thumbnail {
@@ -674,32 +783,173 @@
                 height: 60px;
             }
 
+            .products-title {
+                margin-bottom: 16px;
+            }
+
             .page-nav {
                 display: none;
+            }
+
+            .mobile-nav-dots.show {
+                display: flex;
             }
 
             .theme-toggle {
                 width: 40px;
                 height: 40px;
-                top: 16px;
-                right: 16px;
             }
 
             .theme-icon {
                 font-size: 18px;
             }
-        }
 
-        /* Touch-friendly hover effects for mobile */
-        @media (hover: none) {
-            .product-item:hover {
-                transform: none;
-            }
-
-            .look-image:hover {
-                transform: none;
+            .footer {
+                font-size: 9px;
+                padding: 12px 16px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
             }
         }
+
+        @media (max-width: 480px) {
+            .cover-page {
+                padding: 30px 16px;
+                padding-top: max(30px, env(safe-area-inset-top));
+                padding-bottom: max(50px, env(safe-area-inset-bottom));
+            }
+
+            .cover-image {
+                height: 30vh;
+                margin-bottom: 20px;
+            }
+
+            .cover-title {
+                font-size: clamp(24px, 6vw, 40px);
+                margin-bottom: 10px;
+            }
+
+            .cover-description {
+                font-size: clamp(12px, 1.6vw, 14px);
+                margin-bottom: 15px;
+            }
+
+            .look-page {
+                padding: 24px 14px;
+                padding-bottom: max(90px, calc(env(safe-area-inset-bottom) + 90px));
+            }
+
+            .look-number {
+                font-size: 12px;
+                margin-bottom: 16px;
+            }
+
+            .look-title {
+                font-size: clamp(20px, 5vw, 32px);
+                margin-bottom: 12px;
+            }
+
+            .look-notes {
+                font-size: 13px;
+                line-height: 1.6;
+                margin-bottom: 24px;
+            }
+
+            .products-section {
+                padding-top: 20px;
+            }
+
+            .products-title {
+                font-size: 11px;
+                margin-bottom: 12px;
+            }
+
+            .product-item {
+                grid-template-columns: 50px 1fr;
+                gap: 10px;
+                padding: 8px;
+            }
+
+            .product-thumbnail {
+                width: 50px;
+                height: 50px;
+            }
+
+            .product-name {
+                font-size: 13px;
+                margin-bottom: 4px;
+            }
+
+            .product-details {
+                font-size: 11px;
+            }
+
+            .product-sku {
+                font-size: 9px;
+                margin-top: 4px;
+            }
+
+            .product-cta {
+                padding: 6px 12px;
+                font-size: 10px;
+                margin-top: 8px;
+            }
+
+            .footer {
+                font-size: 8px;
+                padding: 10px 12px;
+                padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            }
+        }
+
+        /* Touch-friendly adjustments */
+        @media (hover: none) and (pointer: coarse) {
+            .product-item:active {
+                transform: scale(0.97);
+            }
+
+            .look-image:active {
+                transform: scale(1.00);
+            }
+
+            .product-cta:active {
+                transform: scale(0.94);
+            }
+
+            /* Increase touch target sizes */
+            .scroll-hint {
+                padding: 16px;
+                border-radius: 12px;
+            }
+
+            .theme-toggle {
+                min-width: 48px;
+                min-height: 48px;
+                width: 48px;
+                height: 48px;
+            }
+
+            .product-item {
+                min-height: 80px;
+            }
+
+            .product-cta {
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+            }
+        }
+
+        /* Safe area debugging (uncomment to see safe areas) */
+        /* body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: env(safe-area-inset-top);
+            background: rgba(255, 0, 0, 0.2);
+            z-index: 10000;
+        } */
     </style>
 </head>
 <body>
@@ -726,8 +976,11 @@
         <!-- Pages will be dynamically inserted here -->
     </div>
 
-    <!-- Page Navigation -->
+    <!-- Desktop Page Navigation -->
     <div class="page-nav" id="page-nav"></div>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav-dots" id="mobile-nav"></div>
 
     <!-- Footer -->
     <div class="footer">
@@ -736,8 +989,17 @@
     </div>
 
     <script>
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {
+                // Silently fail if service worker not available
+            });
+        }
+
+        // Detect device type
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+
         // API Configuration - MUST be defined first
-        // Detect if we're under /AIStudio/ path and include it in API base
         const isAIStudio = window.location.pathname.includes('/AIStudio/');
         const API_BASE = window.location.origin + (isAIStudio ? '/AIStudio/api/v1' : '/api/v1');
 
@@ -754,7 +1016,6 @@
         async function loadSharedLink(linkId) {
             try {
                 console.log('Loading shared link:', linkId);
-                console.log('API URL:', `${API_BASE}/links/shared/${linkId}`);
                 
                 const response = await fetch(`${API_BASE}/links/shared/${linkId}`, {
                     headers: {
@@ -762,16 +1023,11 @@
                     }
                 });
 
-                console.log('Response status:', response.status);
-                
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Response error:', errorText);
                     throw new Error('Lookbook not found or has been removed');
                 }
 
                 const data = await response.json();
-                console.log('Data received:', data);
                 displaySharedLink(data);
             } catch (error) {
                 console.error('Error loading shared link:', error);
@@ -782,24 +1038,31 @@
         function displaySharedLink(data) {
             const container = document.getElementById('content');
             const pageNav = document.getElementById('page-nav');
+            const mobileNav = document.getElementById('mobile-nav');
             
             // Create cover page
             const coverPage = createCoverPage(data);
             container.appendChild(coverPage);
 
-            // Create navigation dot for cover
+            // Create navigation dots
             const coverDot = createNavDot(0);
             pageNav.appendChild(coverDot);
+            mobileNav.appendChild(createNavDot(0, true));
 
             // Create look pages
             data.looks.forEach((look, index) => {
                 const lookPage = createLookPage(look, index + 1, data.looks.length);
                 container.appendChild(lookPage);
 
-                // Create navigation dot
                 const navDot = createNavDot(index + 1);
                 pageNav.appendChild(navDot);
+                mobileNav.appendChild(createNavDot(index + 1, true));
             });
+
+            // Show mobile nav if we have looks
+            if (data.looks.length > 0) {
+                mobileNav.classList.add('show');
+            }
 
             // Set footer date
             document.getElementById('footer-date').textContent = formatDate(data.createdAt);
@@ -817,7 +1080,7 @@
             // Set up scroll listener for navigation
             container.addEventListener('scroll', updateActiveNav);
 
-            // Set up navigation click handlers
+            // Set up navigation
             setupNavigation();
         }
 
@@ -859,6 +1122,7 @@
                                     <img src="${product.thumbnailUrl || product.thumbnail}" 
                                          alt="${escapeHtml(product.name)}" 
                                          class="product-thumbnail"
+                                         loading="lazy"
                                          onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23333%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E'">
                                     <div class="product-info">
                                         <div class="product-name">${escapeHtml(product.name)}</div>
@@ -884,6 +1148,7 @@
                         <img src="${look.generatedImageUrl}" 
                              alt="${escapeHtml(look.title)}" 
                              class="look-image"
+                             loading="lazy"
                              onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="look-details">
@@ -898,7 +1163,7 @@
             return page;
         }
 
-        function createNavDot(index) {
+        function createNavDot(index, isMobile = false) {
             const dot = document.createElement('div');
             dot.className = 'nav-dot';
             dot.dataset.page = index.toString();
@@ -918,21 +1183,28 @@
                 }
             });
 
-            // Touch swipe navigation
+            // Touch swipe navigation for mobile
             let touchStartY = 0;
             let touchEndY = 0;
+            let isScrolling = false;
 
             document.addEventListener('touchstart', (e) => {
                 touchStartY = e.changedTouches[0].screenY;
-            });
+                isScrolling = false;
+            }, { passive: true });
+
+            document.addEventListener('touchmove', () => {
+                isScrolling = true;
+            }, { passive: true });
 
             document.addEventListener('touchend', (e) => {
+                if (isScrolling) return; // User is scrolling, not swiping
                 touchEndY = e.changedTouches[0].screenY;
                 handleSwipe();
-            });
+            }, { passive: true });
 
             function handleSwipe() {
-                const swipeThreshold = 50;
+                const swipeThreshold = 80;
                 if (touchStartY - touchEndY > swipeThreshold) {
                     scrollToNextPage();
                 } else if (touchEndY - touchStartY > swipeThreshold) {
@@ -1009,7 +1281,6 @@
             const themeToggle = document.getElementById('theme-toggle');
             const themeIcon = document.getElementById('theme-icon');
             
-            // Check for saved theme preference or default to dark
             const savedTheme = localStorage.getItem('lookbook-theme') || 'dark';
             if (savedTheme === 'light') {
                 document.body.classList.add('light-mode');
@@ -1019,16 +1290,19 @@
             themeToggle.addEventListener('click', () => {
                 document.body.classList.toggle('light-mode');
                 const isLight = document.body.classList.contains('light-mode');
-                
-                // Update icon
                 themeIcon.textContent = isLight ? '🌙' : '☀️';
-                
-                // Save preference
                 localStorage.setItem('lookbook-theme', isLight ? 'light' : 'dark');
             });
         }
 
-        // Initialize theme toggle when page loads
+        // Prevent double-tap zoom on mobile
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Initialize
         initThemeToggle();
     </script>
 </body>
