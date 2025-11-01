@@ -536,7 +536,7 @@
                     <div class="job-header">
                         <div>
                             <div class="job-id">Job ID: ${job.id}
-                                ${job.frontendRequest && job.frontendRequest.mockMode ? '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7em; margin-left: 10px;">🎭 MOCK</span>' : ''}
+                                ${(job.mockMode || (job.frontendRequest && job.frontendRequest.mockMode)) ? '<span style="background: #ff9800; color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.8em; margin-left: 12px; font-weight: bold;">🎭 MOCK MODE</span>' : ''}
                             </div>
                             <div style="margin-top: 5px; font-size: 0.9em; color: #6c757d;">
                                 User: ${job.userId}
@@ -574,12 +574,21 @@
                             <div class="detail-label">Status:</div>
                             <div class="detail-value">${job.statusMessage || 'Processing...'}</div>
                         </div>
-                        ${job.frontendRequest && job.frontendRequest.mockMode !== undefined ? `
+                        ${job.mockMode !== undefined ? `
                         <div class="detail-row">
                             <div class="detail-label">Mock Mode:</div>
                             <div class="detail-value">
-                                <span style="background: ${job.frontendRequest.mockMode ? '#ff9800' : '#4caf50'}; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">
-                                    ${job.frontendRequest.mockMode ? '🎭 ENABLED' : '✅ DISABLED'}
+                                <span style="background: ${job.mockMode ? '#ff9800' : '#4caf50'}; color: white; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95em;">
+                                    ${job.mockMode ? '🎭 ENABLED (Skipping Veo API)' : '✅ DISABLED (Using Veo API)'}
+                                </span>
+                            </div>
+                        </div>
+                        ` : job.frontendRequest && job.frontendRequest.mockMode !== undefined ? `
+                        <div class="detail-row">
+                            <div class="detail-label">Mock Mode:</div>
+                            <div class="detail-value">
+                                <span style="background: ${job.frontendRequest.mockMode ? '#ff9800' : '#4caf50'}; color: white; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95em;">
+                                    ${job.frontendRequest.mockMode ? '🎭 ENABLED (Skipping Veo API)' : '✅ DISABLED (Using Veo API)'}
                                 </span>
                             </div>
                         </div>
