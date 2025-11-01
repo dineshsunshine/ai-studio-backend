@@ -58,7 +58,7 @@ async def create_video_job(
     aspectRatio: str = Form(..., alias="aspectRatio"),
     durationSeconds: Optional[int] = Form(None, alias="durationSeconds"),
     generateAudio: Optional[bool] = Form(False, alias="generateAudio"),
-    mockMode: Optional[bool] = Form(False, alias="mockMode"),
+    mockMode: Optional[str] = Form("false", alias="mockMode"),  # FormData sends as string
     initialImage: Optional[UploadFile] = File(None),
     endFrame: Optional[UploadFile] = File(None),
     referenceImages: Optional[List[UploadFile]] = File(None),
@@ -114,6 +114,11 @@ async def create_video_job(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Maximum 3 concurrent video jobs allowed. Please wait for existing jobs to complete."
         )
+    
+    # 2.5. Convert mockMode string to boolean (FormData sends strings)
+    mock_mode_bool = False
+    if mockMode:
+        mock_mode_bool = str(mockMode).lower() in ['true', '1', 'yes', 'on']
     
     # 3. Validate required fields
     if not prompt and not initialImage:
@@ -205,9 +210,9 @@ async def create_video_job(
         aspect_ratio=aspectRatio,
         duration_seconds=durationSeconds,
         generate_audio=generateAudio,
-        mock_mode=mockMode if mockMode else False,
+        mock_mode=mock_mode_bool,
         status="PENDING",
-        status_message="Job queued for processing" + (" (MOCK MODE)" if mockMode else ""),
+        status_message="Job queued for processing" + (" (MOCK MODE)" if mock_mode_bool else ""),
         tokens_consumed=token_result["consumedTokens"],
         initial_image_path=initial_image_path,
         end_frame_path=end_frame_path,
@@ -222,7 +227,7 @@ async def create_video_job(
         "aspectRatio": aspectRatio,
         "durationSeconds": durationSeconds,
         "generateAudio": generateAudio,
-        "mockMode": mockMode or False,
+        "mockMode": mock_mode_bool,
         "initialImage": initialImage.filename if initialImage else None,
         "endFrame": endFrame.filename if endFrame else None,
         "referenceImages": [img.filename for img in referenceImages] if referenceImages else None,
