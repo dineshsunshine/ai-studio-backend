@@ -737,6 +737,7 @@ async def migrate_video_jobs_all_columns(
         # List of all columns that should exist
         required_columns = {
             'generate_audio': 'BOOLEAN DEFAULT FALSE',
+            'mock_mode': 'BOOLEAN DEFAULT FALSE',
             'frontend_request': 'JSONB',
             'veo_request': 'JSONB',
             'veo_response': 'JSONB',
@@ -751,6 +752,7 @@ async def migrate_video_jobs_all_columns(
         # For SQLite, use different syntax
         sqlite_types = {
             'generate_audio': 'BOOLEAN DEFAULT 0',
+            'mock_mode': 'BOOLEAN DEFAULT 0',
             'frontend_request': 'TEXT',
             'veo_request': 'TEXT',
             'veo_response': 'TEXT',
