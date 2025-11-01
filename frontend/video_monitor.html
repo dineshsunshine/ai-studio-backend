@@ -535,7 +535,9 @@
                 <div class="job-card ${statusClass}">
                     <div class="job-header">
                         <div>
-                            <div class="job-id">Job ID: ${job.id}</div>
+                            <div class="job-id">Job ID: ${job.id}
+                                ${job.frontendRequest && job.frontendRequest.mockMode ? '<span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7em; margin-left: 10px;">🎭 MOCK</span>' : ''}
+                            </div>
                             <div style="margin-top: 5px; font-size: 0.9em; color: #6c757d;">
                                 User: ${job.userId}
                             </div>
