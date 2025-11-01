@@ -67,6 +67,46 @@ def process_video_generation(self, job_id: str):
         # 2. Update status to RUNNING
         job.status = "RUNNING"
         job.started_at = datetime.utcnow()
+        
+        # Check if mock mode is enabled
+        if job.mock_mode:
+            job.status_message = "Mock mode: Simulating video generation..."
+            job.progress_percentage = 5
+            job.add_log("🎭 Starting MOCK video generation (skipping Google Veo API)", "info")
+            db.commit()
+            
+            # Mock mode: Wait random 8-15 seconds, then return test video
+            import random
+            mock_delay = random.randint(8, 15)
+            job.add_log(f"⏳ Mock mode: Waiting {mock_delay} seconds...", "info")
+            job.progress_percentage = 20
+            db.commit()
+            
+            # Simulate progress updates
+            for progress in [40, 60, 80]:
+                time.sleep(mock_delay / 4)
+                job.progress_percentage = progress
+                job.status_message = f"Mock mode: Generating... ({progress}%)"
+                db.commit()
+            
+            time.sleep(mock_delay / 4)
+            
+            # Use production mock video URL
+            MOCK_VIDEO_URL = "https://res.cloudinary.com/dkxuse2f0/video/upload/v1761931417/ai_studio/videos/599222b2-810c-43f9-983a-c94a945e088d.mp4"
+            
+            job.add_log(f"✅ Mock mode: Video ready! URL: {MOCK_VIDEO_URL[:50]}...", "info")
+            job.progress_percentage = 100
+            job.status = "SUCCEEDED"
+            job.status_message = "Video generated successfully (Mock Mode)"
+            job.cloudinary_url = MOCK_VIDEO_URL
+            job.completed_at = datetime.utcnow()
+            job.tokens_consumed = 50  # Still consume tokens even in mock mode
+            db.commit()
+            
+            print(f"✅ Mock video job {job_id} completed")
+            return
+        
+        # Real mode: Continue with actual Veo API
         job.status_message = "Initializing video generation..."
         job.progress_percentage = 5
         job.add_log("🚀 Starting video generation with Veo 3.1", "info")

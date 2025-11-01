@@ -33,6 +33,7 @@ class VideoJob(Base):
     aspect_ratio = Column(String(20), nullable=False)  # '16:9' or '9:16'
     duration_seconds = Column(Integer, nullable=True)  # 4 or 8
     generate_audio = Column(Boolean, nullable=True, default=False)  # Enable audio generation
+    mock_mode = Column(Boolean, nullable=True, default=False)  # Mock mode (skip Google Veo API, return test video)
     
     # Image file paths (stored temporarily, deleted after upload to Google)
     initial_image_path = Column(String, nullable=True)
@@ -104,6 +105,7 @@ class VideoJob(Base):
             "aspectRatio": self.aspect_ratio,
             "durationSeconds": self.duration_seconds,
             "generateAudio": self.generate_audio or False,
+            "mockMode": self.mock_mode or False,
             "status": self.status,
             "statusMessage": self.status_message,
             "errorMessage": self.error_message,
