@@ -820,3 +820,74 @@ async def migrate_video_jobs_all_columns(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result
         )
+
+@router.post("/video-jobs-mock-mode")
+async def migrate_video_jobs_mock_mode(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add mock_mode column to video_jobs table.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": [],
+        "current_state": {}
+    }
+    
+    try:
+        # Check database type
+        db_url = str(engine.url)
+        is_postgres = 'postgresql' in db_url or 'postgres' in db_url
+        
+        # Check if mock_mode column exists
+        exists = column_exists('video_jobs', 'mock_mode')
+        result["current_state"]["mock_mode"] = exists
+        
+        if exists:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ mock_mode column already exists! No migration needed."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        result["steps"].append("Adding mock_mode column...")
+        
+        if is_postgres:
+            db.execute(text("ALTER TABLE video_jobs ADD COLUMN mock_mode BOOLEAN DEFAULT FALSE"))
+        else:
+            db.execute(text("ALTER TABLE video_jobs ADD COLUMN mock_mode BOOLEAN DEFAULT 0"))
+        
+        db.commit()
+        result["steps"].append("✅ Added mock_mode column")
+        
+        # Verify
+        if column_exists('video_jobs', 'mock_mode'):
+            result["status"] = "success"
+            result["message"] = "✅ Migration completed successfully! mock_mode column added."
+        else:
+            result["status"] = "error"
+            result["message"] = "⚠️  Column added but verification failed"
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
