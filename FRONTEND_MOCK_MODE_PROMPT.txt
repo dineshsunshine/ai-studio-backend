@@ -1,0 +1,37 @@
+# Video Generation Mock Mode - Frontend Integration Prompt
+
+Add a `mockMode` parameter to your video generation API calls to enable testing mode without hitting the paid Google Veo API.
+
+## Quick Integration
+
+When creating a video job via `POST /api/v1/video-jobs`, add `mockMode: 'true'` to your FormData:
+
+```javascript
+formData.append('mockMode', 'true');  // Enable mock mode (skips Veo API)
+// ... other fields ...
+```
+
+**Behavior:**
+- `mockMode: 'true'` → Skips Google Veo API, returns test video after 8-15 seconds
+- `mockMode: 'false'` or omitted → Normal video generation via Google Veo API
+
+**Details:**
+- Mock mode still consumes 50 tokens (simulates real behavior)
+- Random 8-15 second delay simulates real generation time
+- Returns test video URL from Cloudinary
+- Same response format as real mode
+
+**Example:**
+```javascript
+const formData = new FormData();
+formData.append('prompt', 'Your prompt');
+formData.append('model', 'veo-3.1-fast-generate-preview');
+formData.append('resolution', '720p');
+formData.append('aspectRatio', '16:9');
+formData.append('durationSeconds', 4);
+formData.append('mockMode', 'true');  // <--- ADD THIS!
+// ... rest of your code
+```
+
+Use mock mode for UX/UI testing to avoid API costs during development.
+
