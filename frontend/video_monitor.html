@@ -572,6 +572,16 @@
                             <div class="detail-label">Status:</div>
                             <div class="detail-value">${job.statusMessage || 'Processing...'}</div>
                         </div>
+                        ${job.frontendRequest && job.frontendRequest.mockMode !== undefined ? `
+                        <div class="detail-row">
+                            <div class="detail-label">Mock Mode:</div>
+                            <div class="detail-value">
+                                <span style="background: ${job.frontendRequest.mockMode ? '#ff9800' : '#4caf50'}; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold;">
+                                    ${job.frontendRequest.mockMode ? '🎭 ENABLED' : '✅ DISABLED'}
+                                </span>
+                            </div>
+                        </div>
+                        ` : ''}
                         <div class="detail-row">
                             <div class="detail-label">Created:</div>
                             <div class="detail-value">${formatDate(job.createdAt)}</div>
