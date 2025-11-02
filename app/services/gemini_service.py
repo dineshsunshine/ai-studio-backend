@@ -120,18 +120,33 @@ class GeminiService:
                 if response.candidates and len(response.candidates) > 0:
                     candidate = response.candidates[0]
                     if hasattr(candidate, 'content') and candidate.content:
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts and len(candidate.content.parts) > 0:
-                            part = candidate.content.parts[0]
-                            if hasattr(part, 'text') and part.text:
-                                print(f"✅ Gemini text generation successful")
-                                return part.text
+                        # Try direct text access first
+                        if hasattr(candidate.content, 'text') and candidate.content.text:
+                            print(f"✅ Gemini text generation successful (direct text)")
+                            return candidate.content.text
+                        # Try parts access
+                        if hasattr(candidate.content, 'parts'):
+                            parts = candidate.content.parts
+                            if parts and len(parts) > 0:
+                                part = parts[0]
+                                if hasattr(part, 'text') and part.text:
+                                    print(f"✅ Gemini text generation successful (from parts)")
+                                    return part.text
+                            elif not parts:
+                                # parts is None or empty - check finish_reason
+                                finish_reason = getattr(candidate, 'finish_reason', None)
+                                if finish_reason and 'MAX_TOKENS' in str(finish_reason):
+                                    print(f"⚠️  Response was cut off due to maxOutputTokens limit")
+                                    raise ValueError("maxOutputTokens limit too low - Gemini API did not generate content")
+            except ValueError:
+                raise
             except Exception as e:
                 print(f"⚠️  Exception accessing candidates: {e}")
             
             # Fallback: Try old SDK pattern
             try:
                 if hasattr(response, 'text') and response.text:
-                    print(f"✅ Gemini text generation successful (fallback)")
+                    print(f"✅ Gemini text generation successful (fallback response.text)")
                     return response.text
             except Exception as e:
                 print(f"⚠️  Exception accessing response.text: {e}")
