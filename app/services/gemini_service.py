@@ -113,11 +113,23 @@ class GeminiService:
             )
             
             # Extract text from response
-            if response.text:
-                print(f"✅ Gemini text generation successful")
+            print(f"📝 Response type: {type(response)}, dir: {[x for x in dir(response) if not x.startswith('_')][:10]}")
+            
+            # Try to get text from response
+            if hasattr(response, 'text') and response.text:
+                print(f"✅ Gemini text generation successful (from response.text)")
                 return response.text
-            else:
-                raise ValueError("Gemini API returned empty response")
+            
+            # Try to get text from parts
+            if hasattr(response, 'parts') and response.parts:
+                for part in response.parts:
+                    if hasattr(part, 'text') and part.text:
+                        print(f"✅ Gemini text generation successful (from parts)")
+                        return part.text
+            
+            # If we got here, response is empty
+            print(f"❌ Response object: {response}")
+            raise ValueError("Gemini API returned empty response")
         
         except HTTPException:
             raise
@@ -291,14 +303,23 @@ class GeminiService:
             )
             
             # Parse JSON response
-            if response.text:
+            response_text = None
+            if hasattr(response, 'text') and response.text:
+                response_text = response.text
+            elif hasattr(response, 'parts') and response.parts:
+                for part in response.parts:
+                    if hasattr(part, 'text') and part.text:
+                        response_text = part.text
+                        break
+            
+            if response_text:
                 try:
-                    json_response = json.loads(response.text)
+                    json_response = json.loads(response_text)
                     print(f"✅ Gemini JSON generation successful")
                     return json_response
                 except json.JSONDecodeError:
                     print(f"⚠️ Could not parse JSON response, returning as text")
-                    return {"raw_response": response.text}
+                    return {"raw_response": response_text}
             else:
                 raise ValueError("Gemini API returned empty response")
         
@@ -341,11 +362,18 @@ class GeminiService:
             )
             
             # Extract text from response
-            if response.text:
+            if hasattr(response, 'text') and response.text:
                 print(f"✅ Gemini grounded search successful")
                 return response.text
-            else:
-                raise ValueError("Gemini API returned empty response")
+            
+            # Try to get text from parts
+            if hasattr(response, 'parts') and response.parts:
+                for part in response.parts:
+                    if hasattr(part, 'text') and part.text:
+                        print(f"✅ Gemini grounded search successful (from parts)")
+                        return part.text
+            
+            raise ValueError("Gemini API returned empty response")
         
         except HTTPException:
             raise
