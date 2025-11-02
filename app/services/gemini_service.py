@@ -170,17 +170,16 @@ class GeminiService:
             actual_model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {actual_model} for image generation")
             
-            # Add generation config with aspect ratio and other settings
+            # Add generation config with supported settings
             gen_config_dict = {}
             if config:
                 if "responseModalities" in config:
                     gen_config_dict["response_modalities"] = config["responseModalities"]
                 if "imageConfig" in config:
                     if "aspectRatio" in config["imageConfig"]:
-                        gen_config_dict["aspect_ratio"] = config["imageConfig"]["aspectRatio"]
-                        print(f"📐 Setting aspect ratio: {config['imageConfig']['aspectRatio']}")
+                        print(f"📐 Aspect ratio requested: {config['imageConfig']['aspectRatio']} (note: Gemini may not directly support aspect_ratio parameter)")
             
-            # Create generation config
+            # Create generation config with only supported parameters
             gen_config = genai.types.GenerationConfig(**gen_config_dict) if gen_config_dict else None
             
             # Call Gemini API
@@ -251,21 +250,16 @@ class GeminiService:
             model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {model} for high-quality image generation")
             
-            # Build generation config with aspect ratio and other settings
-            gen_config_dict = {}
+            # Log config if provided (aspect ratio may not be directly supported by GenerationConfig)
             if config:
                 if "aspectRatio" in config:
-                    gen_config_dict["aspect_ratio"] = config["aspectRatio"]
-                    print(f"📐 Setting aspect ratio: {config['aspectRatio']}")
+                    print(f"📐 Aspect ratio requested: {config['aspectRatio']} (note: Gemini may not directly support aspect_ratio parameter)")
                 if "numberOfImages" in config:
-                    gen_config_dict["number_of_images"] = config["numberOfImages"]
+                    print(f"🖼️ Number of images requested: {config['numberOfImages']}")
             
-            # Create model with generation config
-            gen_config = genai.types.GenerationConfig(**gen_config_dict) if gen_config_dict else None
-            model_obj = genai.GenerativeModel(
-                model_name=model,
-                generation_config=gen_config
-            )
+            # Create model without generation config for now (aspect_ratio not supported in GenerationConfig)
+            # The prompt itself can include aspect ratio hints if needed
+            model_obj = genai.GenerativeModel(model_name=model)
             response = model_obj.generate_content(prompt)
             
             # Extract image and encode as base64
