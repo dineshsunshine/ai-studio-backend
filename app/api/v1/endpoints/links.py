@@ -470,7 +470,91 @@ async def get_shared_link(
     looks_dict = {str(look.id): look for look in looks}
     ordered_looks = [looks_dict[look_id] for look_id in ordered_look_ids if look_id in looks_dict]
     
-    from app.schemas.look import SharedUserInfo
+    from app.schemas.look import SharedUserInfo, VideoInLook
+    from app.models.video_job import VideoJob as DBVideoJob
+    from app.models.look import look_videos
+    
+    # Build look responses with videos
+    look_responses = []
+    for look in ordered_looks:
+        # Get associated videos for this look
+        videos_query = db.query(DBVideoJob).join(
+            look_videos
+        ).filter(
+            look_videos.c.look_id == look.id,
+            DBVideoJob.status == "SUCCEEDED"
+        ).order_by(look_videos.c.is_default.desc()).all()  # Default videos first
+        
+        # Get default video info
+        default_video = None
+        videos_list = []
+        for video in videos_query:
+            # Get is_default flag from junction table
+            assoc_result = db.execute(
+                look_videos.select().where(
+                    (look_videos.c.look_id == look.id) &
+                    (look_videos.c.video_job_id == video.id)
+                )
+            ).first()
+            
+            is_default = assoc_result.is_default if assoc_result else False
+            
+            video_obj = VideoInLook(
+                id=str(video.id),
+                status=video.status,
+                cloudinary_url=video.cloudinary_url,
+                is_default=is_default,
+                created_at=video.created_at.isoformat() if video.created_at else "",
+                progress_percentage=video.progress_percentage
+            )
+            
+            videos_list.append(video_obj)
+            
+            if is_default and not default_video:
+                default_video = video_obj
+        
+        # Determine default thumbnail
+        default_thumbnail_type = "image"  # default
+        default_thumbnail_url = look.generated_image_url
+        
+        if default_video and default_video.cloudinary_url:
+            default_thumbnail_type = "video"
+            default_thumbnail_url = default_video.cloudinary_url
+        
+        look_response = LookResponse(
+            id=str(look.id),
+            title=look.title,
+            notes=look.notes,
+            generatedImageUrl=look.generated_image_url,
+            visibility=getattr(look, 'visibility', 'private'),
+            sharedWith=[
+                SharedUserInfo(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name
+                )
+                for user in getattr(look, 'shared_with', [])
+            ],
+            videos=videos_list,
+            defaultThumbnailType=default_thumbnail_type,
+            defaultThumbnailUrl=default_thumbnail_url,
+            products=[
+                ProductResponse(
+                    id=str(product.id),
+                    sku=product.sku,
+                    name=product.name,
+                    designer=product.designer,
+                    price=product.price,
+                    productUrl=product.product_url,
+                    thumbnailUrl=product.thumbnail_url,
+                    createdAt=product.created_at.isoformat()
+                )
+                for product in look.products
+            ],
+            createdAt=look.created_at.isoformat(),
+            updatedAt=look.updated_at.isoformat()
+        )
+        look_responses.append(look_response)
     
     return SharedLinkResponse(
         linkId=link.link_id,
@@ -478,39 +562,7 @@ async def get_shared_link(
         description=link.description,
         coverImageUrl=link.cover_image_url,
         companyLogoUrl=company_logo_url,
-        looks=[
-            LookResponse(
-                id=str(look.id),
-                title=look.title,
-                notes=look.notes,
-                generatedImageUrl=look.generated_image_url,
-                visibility=getattr(look, 'visibility', 'private'),
-                sharedWith=[
-                    SharedUserInfo(
-                        id=str(user.id),
-                        email=user.email,
-                        name=user.name
-                    )
-                    for user in getattr(look, 'shared_with', [])
-                ],
-                products=[
-                    ProductResponse(
-                        id=str(product.id),
-                        sku=product.sku,
-                        name=product.name,
-                        designer=product.designer,
-                        price=product.price,
-                        productUrl=product.product_url,
-                        thumbnailUrl=product.thumbnail_url,
-                        createdAt=product.created_at.isoformat()
-                    )
-                    for product in look.products
-                ],
-                createdAt=look.created_at.isoformat(),
-                updatedAt=look.updated_at.isoformat()
-            )
-            for look in ordered_looks
-        ],
+        looks=look_responses,
         createdAt=link.created_at.isoformat()
     )
 

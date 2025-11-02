@@ -441,6 +441,19 @@
             transform: scale(1.01);
         }
 
+        .look-media {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 2px;
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+            transition: transform 0.3s ease;
+        }
+
+        .look-media:active {
+            transform: scale(1.01);
+        }
+
         .look-details {
             display: flex;
             flex-direction: column;
@@ -731,6 +744,62 @@
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        /* Media Thumbnails Overlay */
+        .media-thumbnails-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            padding: 12px;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        
+        .media-thumbnail {
+            width: 56px;
+            height: 56px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+            border: 2px solid transparent;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .media-thumbnail:hover {
+            transform: scale(1.08);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .media-thumbnail.active {
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+        }
+        
+        .media-thumb-icon {
+            font-size: 20px;
+            color: #ffffff;
+        }
+        
+        .media-thumb-badge {
+            font-size: 8px;
+            color: #00ff00;
+            font-weight: bold;
         }
 
         /* Desktop Responsive Design */
@@ -1164,6 +1233,56 @@
             page.className = 'look-page';
             page.dataset.page = lookNumber.toString();
 
+            // Build media thumbnails overlay if there are videos or multiple media
+            const allMedia = [];
+            
+            // Add image as first media
+            allMedia.push({
+                type: 'image',
+                url: look.generatedImageUrl,
+                isDefault: look.defaultThumbnailType === 'image'
+            });
+            
+            // Add videos
+            if (look.videos && look.videos.length > 0) {
+                look.videos.forEach(video => {
+                    if (video.cloudinaryUrl) {
+                        allMedia.push({
+                            type: 'video',
+                            url: video.cloudinaryUrl,
+                            isDefault: video.isDefault,
+                            videoId: video.id
+                        });
+                    }
+                });
+            }
+            
+            // Build main media display (video if available, otherwise image)
+            const mainMediaUrl = look.defaultThumbnailUrl || look.generatedImageUrl;
+            const isVideoDefault = look.defaultThumbnailType === 'video';
+            
+            const mainMediaHTML = isVideoDefault 
+                ? `<video src="${mainMediaUrl}" class="look-media" controls autoplay muted loop></video>`
+                : `<img src="${mainMediaUrl}" alt="${escapeHtml(look.title)}" class="look-image" loading="lazy" onerror="this.style.opacity='0.3'">`;
+            
+            // Build media thumbnails if there's more than 1 media
+            const mediaThumbnailsHTML = allMedia.length > 1
+                ? `
+                <div class="media-thumbnails-overlay">
+                    ${allMedia.map((media, idx) => `
+                        <div class="media-thumbnail ${media.isDefault ? 'active' : ''}" 
+                             data-media-type="${media.type}"
+                             data-media-url="${escapeAttribute(media.url)}"
+                             title="${media.type === 'video' ? 'Video' : 'Image'}"
+                             onclick="switchMedia(this, '${escapeAttribute(media.url)}', '${media.type}')">
+                            <div class="media-thumb-icon">${media.type === 'video' ? '▶' : '🖼'}</div>
+                            ${media.isDefault ? '<div class="media-thumb-badge">●</div>' : ''}
+                        </div>
+                    `).join('')}
+                </div>
+                `
+                : '';
+            
             const productsHTML = look.products && look.products.length > 0 
                 ? `
                     <div class="products-section">
@@ -1196,12 +1315,9 @@
 
             page.innerHTML = `
                 <div class="look-content">
-                    <div class="look-image-container">
-                        <img src="${look.generatedImageUrl}" 
-                             alt="${escapeHtml(look.title)}" 
-                             class="look-image"
-                             loading="lazy"
-                             onerror="this.style.opacity='0.3'">
+                    <div class="look-image-container" id="media-container-${look.id}">
+                        ${mainMediaHTML}
+                        ${mediaThumbnailsHTML}
                     </div>
                     <div class="look-details">
                         <div class="look-number">Look ${lookNumber.toString().padStart(2, '0')} / ${totalLooks.toString().padStart(2, '0')}</div>
@@ -1213,6 +1329,52 @@
             `;
 
             return page;
+        }
+        
+        function switchMedia(element, mediaUrl, mediaType) {
+            // Find container
+            const container = element.closest('.look-image-container');
+            if (!container) return;
+            
+            // Remove old media
+            const oldMedia = container.querySelector('.look-image, .look-media');
+            if (oldMedia) oldMedia.remove();
+            
+            // Create new media
+            let newMedia;
+            if (mediaType === 'video') {
+                newMedia = document.createElement('video');
+                newMedia.src = mediaUrl;
+                newMedia.className = 'look-media';
+                newMedia.controls = true;
+                newMedia.autoplay = true;
+                newMedia.muted = true;
+                newMedia.loop = true;
+            } else {
+                newMedia = document.createElement('img');
+                newMedia.src = mediaUrl;
+                newMedia.className = 'look-image';
+                newMedia.loading = 'lazy';
+                newMedia.onerror = "this.style.opacity='0.3'";
+            }
+            
+            // Insert after thumbnails
+            const thumbnails = container.querySelector('.media-thumbnails-overlay');
+            if (thumbnails) {
+                thumbnails.before(newMedia);
+            } else {
+                container.insertBefore(newMedia, container.firstChild);
+            }
+            
+            // Update active state
+            const thumbnails_list = container.querySelectorAll('.media-thumbnail');
+            thumbnails_list.forEach(thumb => thumb.classList.remove('active'));
+            element.classList.add('active');
+        }
+        
+        function escapeAttribute(str) {
+            if (!str) return '';
+            return str.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
         function createNavDot(index, isMobile = false) {
