@@ -1,16 +1,16 @@
 """
 GeminiService: Secure wrapper for Google Gemini API calls
 All API calls go through this service which manages the API key and handles errors.
+Uses the new google-genai SDK for proper aspect_ratio support.
 """
 
 import os
 import json
 import base64
 from typing import Optional, Dict, Any, List
-from datetime import datetime
 
-import google.generativeai as genai
-from google.generativeai.types import GenerateContentResponse
+from google import genai
+from google.genai import types
 from fastapi import HTTPException, status
 
 
@@ -37,9 +37,10 @@ class GeminiService:
         if not api_key:
             print("⚠️  GOOGLE_API_KEY not set - Gemini endpoints will return errors until API key is configured")
             self.api_key_configured = False
+            self.client = None
             return
         
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         self.request_timeout = int(os.getenv("GEMINI_REQUEST_TIMEOUT", "60"))
         self.max_retries = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
         self.api_key_configured = True
@@ -80,22 +81,6 @@ class GeminiService:
             detail={"error": f"The Gemini API returned an error: {error_message}", "code": "GEMINI_API_ERROR"}
         )
     
-    def _convert_base64_to_inline_data(self, mime_type: str, base64_data: str) -> Dict[str, Any]:
-        """Convert base64 string to Gemini inline data format."""
-        return {
-            "inlineData": {
-                "mimeType": mime_type,
-                "data": base64_data
-            }
-        }
-    
-    def _validate_image_size(self, base64_data: str, max_mb: float = 5.0) -> None:
-        """Validate that base64 image doesn't exceed max size."""
-        # Rough estimate: 1MB ≈ 1.33M base64 chars (4 base64 chars = 3 bytes)
-        max_chars = int(max_mb * 1024 * 1024 * 4 / 3)
-        if len(base64_data) > max_chars:
-            raise ValueError(f"Image size exceeds {max_mb}MB limit")
-    
     async def generate_text(
         self,
         model: str,
@@ -112,30 +97,19 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini generate_text with model: {model}")
             
-            # Build request parameters
-            kwargs = {
-                "model": model,
-                "contents": contents,
-            }
+            # Build generation config if needed
+            gen_config = None
+            if config and "maxOutputTokens" in config:
+                gen_config = types.GenerateContentConfig(
+                    max_output_tokens=config["maxOutputTokens"]
+                )
             
-            if system_instruction:
-                kwargs["system_instruction"] = system_instruction
-            
-            if config:
-                # Map config to GenerationConfig
-                if "maxOutputTokens" in config:
-                    kwargs["generation_config"] = {
-                        "max_output_tokens": config["maxOutputTokens"]
-                    }
-            
-            # Call Gemini API
-            model_obj = genai.GenerativeModel(
-                model_name=model,
+            # Call Gemini API using new SDK
+            response = self.client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=gen_config,
                 system_instruction=system_instruction
-            )
-            response = model_obj.generate_content(
-                contents,
-                generation_config=kwargs.get("generation_config")
             )
             
             # Extract text from response
@@ -145,6 +119,8 @@ class GeminiService:
             else:
                 raise ValueError("Gemini API returned empty response")
         
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"❌ Error in generate_text: {str(e)}")
             raise self._handle_api_error(e)
@@ -157,7 +133,7 @@ class GeminiService:
         history: Optional[List[Dict[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Generate image using Gemini API."""
+        """Generate image using Gemini API with aspect ratio support."""
         if not self.api_key_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -170,66 +146,44 @@ class GeminiService:
             actual_model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {actual_model} for image generation")
             
-            # Build config dict for aspect ratio if provided
-            config_dict = {}
+            # Build generation config with image_config for aspect ratio
+            gen_config = None
             if config:
-                if "responseModalities" in config:
-                    config_dict["response_modalities"] = config["responseModalities"]
+                image_config = None
                 if "imageConfig" in config:
-                    # Build image_config with aspect_ratio if provided
-                    image_config_dict = {}
-                    if "aspectRatio" in config["imageConfig"]:
-                        image_config_dict["aspect_ratio"] = config["imageConfig"]["aspectRatio"]
-                        print(f"📐 Setting aspect ratio: {config['imageConfig']['aspectRatio']}")
-                    if image_config_dict:
-                        config_dict["image_config"] = image_config_dict
-            
-            # Call Gemini API
-            model_obj = genai.GenerativeModel(
-                model_name=actual_model,
-                system_instruction=system_instruction
-            )
+                    aspect_ratio = config["imageConfig"].get("aspectRatio")
+                    if aspect_ratio:
+                        image_config = types.ImageConfig(aspect_ratio=aspect_ratio)
+                        print(f"📐 Setting aspect ratio: {aspect_ratio}")
+                
+                response_modalities = config.get("responseModalities")
+                
+                gen_config = types.GenerateContentConfig(
+                    image_config=image_config,
+                    response_modalities=response_modalities if response_modalities else None
+                )
             
             # Build content for multi-turn if history is provided
             if history:
-                content_to_send = history + [{"role": "user", "parts": contents.get("parts", [])}]
+                contents_to_send = history + [{"role": "user", "parts": contents.get("parts", [])}]
             else:
-                content_to_send = contents
+                contents_to_send = contents
             
-            # Prepare generate_content kwargs
-            generate_content_kwargs = {"contents": content_to_send}
-            
-            # Add config if we have any settings
-            if config_dict:
-                generate_content_kwargs["config"] = config_dict
-            
-            # Generate content
-            response = model_obj.generate_content(**generate_content_kwargs)
+            # Call Gemini API
+            response = self.client.models.generate_content(
+                model=actual_model,
+                contents=contents_to_send,
+                config=gen_config,
+                system_instruction=system_instruction
+            )
             
             # Extract image from response
-            if response.data and hasattr(response.data, 'mime_type'):
-                if "image" in response.data.mime_type:
-                    # Ensure data is base64 encoded string
-                    if isinstance(response.data, bytes):
-                        image_base64 = base64.b64encode(response.data).decode('utf-8')
-                    else:
-                        image_base64 = str(response.data)
-                    print(f"✅ Gemini image generation successful")
-                    return image_base64
-            
-            # Try to get image from parts
             if hasattr(response, 'parts') and response.parts:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
-                            # The data might already be base64 or raw bytes
-                            data = part.inline_data.data
-                            if isinstance(data, bytes):
-                                # If it's raw bytes, encode to base64
-                                image_base64 = base64.b64encode(data).decode('utf-8')
-                            else:
-                                # If it's already a string (base64), use as-is
-                                image_base64 = str(data)
+                            # The data is already base64
+                            image_base64 = part.inline_data.data
                             print(f"✅ Gemini image generation successful")
                             return image_base64
             
@@ -246,7 +200,7 @@ class GeminiService:
         prompt: str,
         config: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Generate high-quality image using gemini-2.5-flash-image model."""
+        """Generate high-quality image using gemini-2.5-flash-image with aspect ratio support."""
         if not self.api_key_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -259,44 +213,29 @@ class GeminiService:
             model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {model} for high-quality image generation")
             
-            # Build config dict for aspect ratio if provided
-            config_dict = {}
-            if config:
-                if "aspectRatio" in config:
-                    # Build image_config with aspect_ratio
-                    config_dict["image_config"] = {
-                        "aspect_ratio": config["aspectRatio"]
-                    }
-                    print(f"📐 Setting aspect ratio: {config['aspectRatio']}")
+            # Build generation config with image_config for aspect ratio
+            gen_config = None
+            if config and "aspectRatio" in config:
+                image_config = types.ImageConfig(aspect_ratio=config["aspectRatio"])
+                print(f"📐 Setting aspect ratio: {config['aspectRatio']}")
+                gen_config = types.GenerateContentConfig(image_config=image_config)
                 if "numberOfImages" in config:
                     print(f"🖼️ Number of images requested: {config['numberOfImages']}")
             
-            # Create model
-            model_obj = genai.GenerativeModel(model_name=model)
-            
-            # Prepare generate_content kwargs
-            generate_content_kwargs = {"contents": prompt}
-            
-            # Add config if we have image settings
-            if config_dict:
-                generate_content_kwargs["config"] = config_dict
-            
             # Call generate_content
-            response = model_obj.generate_content(**generate_content_kwargs)
+            response = self.client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=gen_config
+            )
             
             # Extract image and encode as base64
             if hasattr(response, 'parts') and response.parts:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
-                            # The data might already be base64 or raw bytes
-                            data = part.inline_data.data
-                            if isinstance(data, bytes):
-                                # If it's raw bytes, encode to base64
-                                image_base64 = base64.b64encode(data).decode('utf-8')
-                            else:
-                                # If it's already a string (base64), use as-is
-                                image_base64 = str(data)
+                            # The data is already base64
+                            image_base64 = part.inline_data.data
                             print(f"✅ Image generation successful with gemini-2.5-flash-image")
                             return image_base64
             
@@ -324,40 +263,30 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini generate_json with model: {model}")
             
-            # Build request with schema
-            kwargs = {
-                "model": model,
-                "contents": contents,
-            }
-            
-            if system_instruction:
-                kwargs["system_instruction"] = system_instruction
-            
-            # Add generation config with response schema
-            gen_config = {}
+            # Build generation config with response schema
+            gen_config = None
             if config:
-                if "responseMimeType" in config:
-                    gen_config["response_mime_type"] = config["responseMimeType"]
-                if "responseSchema" in config:
-                    gen_config["response_schema"] = config["responseSchema"]
+                response_schema = config.get("responseSchema")
+                gen_config = types.GenerateContentConfig(
+                    response_mime_type=config.get("responseMimeType", "application/json"),
+                    response_schema=response_schema if response_schema else None
+                )
             
             # Call Gemini API
-            model_obj = genai.GenerativeModel(
-                model_name=model,
-                system_instruction=system_instruction,
-                generation_config=genai.types.GenerationConfig(**gen_config) if gen_config else None
+            response = self.client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=gen_config,
+                system_instruction=system_instruction
             )
-            response = model_obj.generate_content(contents)
             
             # Parse JSON response
             if response.text:
                 try:
-                    # Try to parse the response as JSON
                     json_response = json.loads(response.text)
                     print(f"✅ Gemini JSON generation successful")
                     return json_response
                 except json.JSONDecodeError:
-                    # If parsing fails, return the text wrapped
                     print(f"⚠️ Could not parse JSON response, returning as text")
                     return {"raw_response": response.text}
             else:
@@ -385,29 +314,22 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini grounded_search with model: {model}")
             
-            # Build request with Google Search tool
-            kwargs = {
-                "model": model,
-                "contents": contents,
-            }
-            
-            if system_instruction:
-                kwargs["system_instruction"] = system_instruction
-            
-            # Add tools
+            # Build tools list with google_search
             tools = []
             if config and "tools" in config:
-                tools = config["tools"]
-            else:
-                tools = [{"google_search": {}}]
+                # Parse tools from config
+                if isinstance(config["tools"], list):
+                    for tool in config["tools"]:
+                        if isinstance(tool, dict) and "googleSearch" in tool:
+                            tools.append(types.Tool.from_dict({"google_search": {}}))
             
             # Call Gemini API with tools
-            model_obj = genai.GenerativeModel(
-                model_name=model,
+            response = self.client.models.generate_content(
+                model=model,
+                contents=contents,
                 system_instruction=system_instruction,
-                tools=tools
+                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
             )
-            response = model_obj.generate_content(contents)
             
             # Extract text from response
             if response.text:
