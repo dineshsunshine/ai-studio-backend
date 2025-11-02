@@ -115,7 +115,17 @@ class GeminiService:
             # Extract text from response
             print(f"📝 Response type: {type(response)}, dir: {[x for x in dir(response) if not x.startswith('_')][:10]}")
             
-            # Try to get text from response
+            # Try to get text from candidates
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'content') and candidate.content:
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    print(f"✅ Gemini text generation successful (from candidates)")
+                                    return part.text
+            
+            # Try to get text from response.text (old SDK compatibility)
             if hasattr(response, 'text') and response.text:
                 print(f"✅ Gemini text generation successful (from response.text)")
                 return response.text
@@ -304,13 +314,28 @@ class GeminiService:
             
             # Parse JSON response
             response_text = None
-            if hasattr(response, 'text') and response.text:
-                response_text = response.text
-            elif hasattr(response, 'parts') and response.parts:
-                for part in response.parts:
-                    if hasattr(part, 'text') and part.text:
-                        response_text = part.text
+            
+            # Try to get text from candidates
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'content') and candidate.content:
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    response_text = part.text
+                                    break
+                    if response_text:
                         break
+            
+            # Fallback: Try old SDK pattern
+            if not response_text:
+                if hasattr(response, 'text') and response.text:
+                    response_text = response.text
+                elif hasattr(response, 'parts') and response.parts:
+                    for part in response.parts:
+                        if hasattr(part, 'text') and part.text:
+                            response_text = part.text
+                            break
             
             if response_text:
                 try:
@@ -362,6 +387,17 @@ class GeminiService:
             )
             
             # Extract text from response
+            # Try to get text from candidates
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'content') and candidate.content:
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            for part in candidate.content.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    print(f"✅ Gemini grounded search successful (from candidates)")
+                                    return part.text
+            
+            # Fallback: Try old SDK pattern
             if hasattr(response, 'text') and response.text:
                 print(f"✅ Gemini grounded search successful")
                 return response.text
