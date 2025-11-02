@@ -261,19 +261,45 @@ async def create_video_job(
             
             # Verify look exists and user owns it
             look = db.query(DBLook).filter(DBLook.id == look_id).first()
-            if look and str(look.user_id) == str(current_user.id):
-                # Link video to look
-                assoc = look_videos.insert().values(
-                    look_id=look_id,
-                    video_job_id=str(new_job.id),
-                    is_default=False
+            if not look:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Look with ID {look_id} not found"
                 )
-                db.execute(assoc)
-                db.commit()
-                new_job.add_log(f"🔗 Linked to look {look_id}", "info")
-                print(f"✅ Linked video {new_job.id} to look {look_id}")
-            else:
-                print(f"⚠️  Look {look_id} not found or user doesn't own it")
+            
+            # Check permission: user must own the look (unless admin or shared)
+            if str(look.user_id) != str(current_user.id):
+                # User doesn't own this look - check if it's shared with them or if they're an admin
+                from app.models.user import UserRole
+                from app.models.look import look_shares
+                
+                # Check if it's an admin
+                if current_user.role != UserRole.ADMIN:
+                    # Check if look is shared with this user
+                    is_shared = db.query(look_shares).filter(
+                        (look_shares.c.look_id == look_id) &
+                        (look_shares.c.user_id == str(current_user.id))
+                    ).first()
+                    
+                    if not is_shared:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"You don't have permission to create videos for this look"
+                        )
+            
+            # Link video to look
+            assoc = look_videos.insert().values(
+                look_id=look_id,
+                video_job_id=str(new_job.id),
+                is_default=False
+            )
+            db.execute(assoc)
+            db.commit()
+            new_job.add_log(f"🔗 Linked to look {look_id}", "info")
+            print(f"✅ Linked video {new_job.id} to look {look_id}")
+        except HTTPException:
+            # Re-raise HTTP exceptions (404, 403)
+            raise
         except Exception as e:
             print(f"⚠️  Warning: Could not link video to look: {e}")
             new_job.add_log(f"⚠️  Could not link to look: {str(e)}", "warning")
