@@ -105,11 +105,11 @@ class GeminiService:
                 )
             
             # Call Gemini API using new SDK
-            response = self.client.models.generate_content(
-                model=model,
+            # Note: system_instruction is passed to the model, not generate_content
+            model_obj = self.client.models.get(model)
+            response = model_obj.generate_content(
                 contents=contents,
-                config=gen_config,
-                system_instruction=system_instruction
+                config=gen_config
             )
             
             # Extract text from response
@@ -169,12 +169,11 @@ class GeminiService:
             else:
                 contents_to_send = contents
             
-            # Call Gemini API
-            response = self.client.models.generate_content(
-                model=actual_model,
+            # Call Gemini API - get model first
+            model_obj = self.client.models.get(actual_model)
+            response = model_obj.generate_content(
                 contents=contents_to_send,
-                config=gen_config,
-                system_instruction=system_instruction
+                config=gen_config
             )
             
             # Extract image from response
@@ -229,8 +228,8 @@ class GeminiService:
                     print(f"🖼️ Number of images requested: {config['numberOfImages']}")
             
             # Call generate_content
-            response = self.client.models.generate_content(
-                model=model,
+            model_obj = self.client.models.get(model)
+            response = model_obj.generate_content(
                 contents=prompt,
                 config=gen_config
             )
@@ -285,11 +284,10 @@ class GeminiService:
                 )
             
             # Call Gemini API
-            response = self.client.models.generate_content(
-                model=model,
+            model_obj = self.client.models.get(model)
+            response = model_obj.generate_content(
                 contents=contents,
-                config=gen_config,
-                system_instruction=system_instruction
+                config=gen_config
             )
             
             # Parse JSON response
@@ -336,10 +334,9 @@ class GeminiService:
                             tools.append(types.Tool.from_dict({"google_search": {}}))
             
             # Call Gemini API with tools
-            response = self.client.models.generate_content(
-                model=model,
+            model_obj = self.client.models.get(model)
+            response = model_obj.generate_content(
                 contents=contents,
-                system_instruction=system_instruction,
                 tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
             )
             
