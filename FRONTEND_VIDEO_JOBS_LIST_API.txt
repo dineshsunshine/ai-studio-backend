@@ -1,0 +1,380 @@
+## Video Jobs List API - Frontend Integration Guide
+
+### Overview
+The GET /api/v1/video-jobs endpoint is now working correctly and returns a lightweight list of video generation jobs for the authenticated user.
+
+---
+
+## API Endpoint Details
+
+**URL:** `GET /api/v1/video-jobs`
+**Authentication:** Required (JWT Bearer Token)
+**Method:** GET
+
+### Query Parameters
+- `skip` (optional): Number of jobs to skip for pagination (default: 0)
+- `limit` (optional): Max jobs to return (default: 50, max: 100)
+- `status_filter` (optional): Filter by status (PENDING, RUNNING, SUCCEEDED, FAILED)
+
+### Example Requests
+
+```
+GET /api/v1/video-jobs
+GET /api/v1/video-jobs?skip=0&limit=20
+GET /api/v1/video-jobs?skip=20&limit=20&status_filter=SUCCEEDED
+```
+
+---
+
+## Response Format
+
+### Success Response (200 OK)
+
+```json
+{
+  "jobs": [
+    {
+      "id": "a2ba6ab9-fb39-49f2-813c-4ea6939f4b49",
+      "status": "SUCCEEDED",
+      "prompt": "You are an expert AI video artist creating cinematic, hyper-realistic content for a luxury fashion brand...",
+      "model": "veo-3.1-fast-generate-preview",
+      "resolution": "720p",
+      "aspectRatio": "16:9",
+      "durationSeconds": 4,
+      "cloudinaryUrl": "https://res.cloudinary.com/dkxuse2f0/video/upload/v1761931417/ai_studio/videos/599222b2-810c-43f9-983a-c94a945e088d.mp4",
+      "progressPercentage": 100,
+      "mockMode": true,
+      "createdAt": "2025-11-02T08:16:09.815602",
+      "updatedAt": "2025-11-02T08:16:21.092879"
+    },
+    {
+      "id": "5cca2dfc-41db-4ea1-9816-63ed5ab3a95a",
+      "status": "PENDING",
+      "prompt": "Another video prompt...",
+      "model": "veo-3.1-generate-preview",
+      "resolution": "1080p",
+      "aspectRatio": "9:16",
+      "durationSeconds": 8,
+      "cloudinaryUrl": null,
+      "progressPercentage": 0,
+      "mockMode": false,
+      "createdAt": "2025-11-02T08:04:25.281661",
+      "updatedAt": "2025-11-02T08:04:40.438310"
+    }
+  ],
+  "total": 36
+}
+```
+
+### Key Fields Explained
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique video job identifier |
+| `status` | string | Job status: PENDING, RUNNING, SUCCEEDED, FAILED |
+| `prompt` | string | Text prompt (truncated to first 150 characters) |
+| `model` | string | Video model used (e.g., veo-3.1-fast-generate-preview) |
+| `resolution` | string | Video resolution (720p, 1080p) |
+| `aspectRatio` | string | Aspect ratio (16:9, 9:16) |
+| `durationSeconds` | number | Video duration in seconds |
+| `cloudinaryUrl` | string or null | URL to the generated video (null if not ready) |
+| `progressPercentage` | number | Generation progress (0-100) |
+| `mockMode` | boolean | Whether mock mode was used (true = test video, false = real Veo) |
+| `createdAt` | string (ISO 8601) | Job creation timestamp |
+| `updatedAt` | string (ISO 8601) | Last update timestamp |
+
+---
+
+## Error Responses
+
+### 401 Unauthorized
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+**Cause:** Missing or invalid JWT token
+**Solution:** Ensure Authorization header is set: `Authorization: Bearer YOUR_TOKEN`
+
+### 403 Forbidden
+```json
+{
+  "detail": "Access denied"
+}
+```
+**Cause:** User doesn't have permission
+**Solution:** Verify token belongs to correct user
+
+### 500 Internal Server Error
+```json
+{
+  "detail": "Internal Server Error"
+}
+```
+**Cause:** Server error
+**Solution:** Check logs and contact backend team
+
+---
+
+## Frontend Implementation Examples
+
+### JavaScript/Fetch
+
+```javascript
+const API_BASE = "https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio";
+
+// Function to list video jobs
+const listVideoJobs = async (skip = 0, limit = 20) => {
+  const token = localStorage.getItem('authToken');
+  
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/v1/video-jobs?skip=${skip}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video jobs: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data; // Returns { jobs: [...], total: number }
+  } catch (error) {
+    console.error('Error fetching video jobs:', error);
+    throw error;
+  }
+};
+```
+
+### React Hook Example
+
+```javascript
+import { useState, useEffect } from 'react';
+
+const VideoJobsList = () => {
+  const [jobs, setJobs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [skip, setSkip] = useState(0);
+  const limit = 20;
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const data = await listVideoJobs(skip, limit);
+        setJobs(data.jobs);
+        setTotal(data.total);
+      } catch (error) {
+        console.error('Failed to fetch jobs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, [skip]);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h2>Video Jobs ({total} total)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Duration</th>
+            <th>Video</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map(job => (
+            <tr key={job.id}>
+              <td>{new Date(job.createdAt).toLocaleDateString()}</td>
+              <td>
+                <span className={`status-${job.status.toLowerCase()}`}>
+                  {job.status}
+                </span>
+              </td>
+              <td>
+                <div className="progress-bar">
+                  <div style={{ width: `${job.progressPercentage}%` }}>
+                    {job.progressPercentage}%
+                  </div>
+                </div>
+              </td>
+              <td>{job.durationSeconds}s</td>
+              <td>
+                {job.cloudinaryUrl ? (
+                  <a href={job.cloudinaryUrl} target="_blank" rel="noopener noreferrer">
+                    Watch
+                  </a>
+                ) : (
+                  'Processing...'
+                )}
+              </td>
+              <td>
+                {/* Action buttons */}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Pagination */}
+      <div className="pagination">
+        <button 
+          onClick={() => setSkip(Math.max(0, skip - limit))}
+          disabled={skip === 0}
+        >
+          Previous
+        </button>
+        <span>Page {Math.floor(skip / limit) + 1}</span>
+        <button 
+          onClick={() => setSkip(skip + limit)}
+          disabled={skip + limit >= total}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default VideoJobsList;
+```
+
+### Status Badge Component
+
+```javascript
+const StatusBadge = ({ status }) => {
+  const statusColors = {
+    PENDING: '#FFA500',    // Orange
+    RUNNING: '#4A90E2',    // Blue
+    SUCCEEDED: '#50C878',  // Green
+    FAILED: '#E74C3C'      // Red
+  };
+
+  const statusLabels = {
+    PENDING: 'Processing...',
+    RUNNING: 'Generating...',
+    SUCCEEDED: 'Completed',
+    FAILED: 'Failed'
+  };
+
+  return (
+    <span 
+      style={{
+        backgroundColor: statusColors[status],
+        color: 'white',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '12px'
+      }}
+    >
+      {statusLabels[status]}
+    </span>
+  );
+};
+```
+
+---
+
+## Pagination Example
+
+```javascript
+// Get first page (20 items)
+const page1 = await listVideoJobs(0, 20);
+console.log(`Page 1: ${page1.jobs.length} jobs, Total: ${page1.total}`);
+
+// Get second page (next 20 items)
+const page2 = await listVideoJobs(20, 20);
+console.log(`Page 2: ${page2.jobs.length} jobs`);
+
+// Get 50 items per page
+const largePage = await listVideoJobs(0, 50);
+console.log(`Large page: ${largePage.jobs.length} jobs`);
+```
+
+---
+
+## Filtering by Status
+
+```javascript
+// Get only completed videos
+const completedJobs = await fetch(
+  `${API_BASE}/api/v1/video-jobs?status_filter=SUCCEEDED&limit=50`,
+  { headers: { 'Authorization': `Bearer ${token}` } }
+).then(r => r.json());
+
+// Get only pending videos
+const pendingJobs = await fetch(
+  `${API_BASE}/api/v1/video-jobs?status_filter=PENDING&limit=50`,
+  { headers: { 'Authorization': `Bearer ${token}` } }
+).then(r => r.json());
+```
+
+---
+
+## Important Notes
+
+✅ **Use camelCase** for all field names (not snake_case)
+✅ **Use `skip` parameter** for pagination (NOT `offset`)
+✅ Both `/video-jobs` and `/video-jobs/` paths work
+✅ `cloudinaryUrl` is `null` until video generation is complete
+✅ `prompt` field is truncated to 150 characters for list view
+✅ All timestamps are in ISO 8601 format
+✅ Always include JWT token in Authorization header
+✅ Maximum 100 items per request
+
+---
+
+## API Base URLs
+
+**Development (Local):**
+```
+http://localhost:8000
+```
+
+**Development (ngrok):**
+```
+https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio
+```
+
+**Production:**
+```
+https://ai-studio-backend-ijkp.onrender.com
+```
+
+---
+
+## Troubleshooting
+
+### "Could not validate credentials" error
+- Verify JWT token is present in Authorization header
+- Check token has not expired
+- Re-authenticate if needed
+
+### "Failed to fetch" error
+- Check CORS settings
+- Verify API base URL is correct
+- Ensure ngrok tunnel is active (for dev)
+
+### Empty jobs list but expected data
+- Check pagination parameters (skip/limit)
+- Verify user authentication
+- Try without status_filter first
+
+---
+
+**Last Updated:** November 2, 2025

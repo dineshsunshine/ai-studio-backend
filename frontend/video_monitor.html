@@ -461,28 +461,32 @@
             try {
                 isUpdating = true;
                 updateRefreshIndicator(true);
+                console.log('📡 Fetching from:', `${API_BASE}/video-jobs/all`);
 
-                // Fetch jobs from all users (public access)
                 const response = await fetch(`${API_BASE}/video-jobs/all`, {
                     headers: {
                         'ngrok-skip-browser-warning': 'true'
                     }
                 });
 
+                console.log('✅ Response status:', response.status);
+                
                 if (!response.ok) {
-                    // If endpoint doesn't exist, create it in your backend
-                    console.warn('Public video jobs endpoint not available');
+                    console.error(`❌ API Error: ${response.status} ${response.statusText}`);
                     return;
                 }
 
                 const data = await response.json();
+                console.log('✅ Fetched', data.jobs?.length || 0, 'jobs');
                 allJobs = data.jobs || [];
+                console.log('📊 Total jobs:', allJobs.length);
                 
+                // Force UI update
                 updateStats();
                 renderJobs();
                 updateRefreshIndicator(false);
             } catch (error) {
-                console.error('Error fetching jobs:', error);
+                console.error('❌ Error fetching jobs:', error.message);
                 updateRefreshIndicator(false);
             } finally {
                 isUpdating = false;

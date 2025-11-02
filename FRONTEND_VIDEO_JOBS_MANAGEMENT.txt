@@ -1,0 +1,603 @@
+## Video Jobs Management - Frontend Integration Guide
+
+### ⚠️ IMPORTANT: Common Mistake to Avoid
+
+**❌ WRONG - This endpoint does NOT exist:**
+```
+DELETE /api/v1/looks/{lookId}/videos/{videoId}
+```
+
+**✅ CORRECT - Use the video-jobs endpoint:**
+```
+DELETE /api/v1/video-jobs/{videoId}
+```
+
+All video management (create, list, delete, download) is done through the **video-jobs** endpoints, not through the looks endpoints. Videos are related to looks through the `look_id` parameter, but deletion always goes through the video-jobs endpoint.
+
+---
+
+### ⚠️ Another Common Mistake to Avoid
+
+**❌ WRONG - This endpoint does NOT exist:**
+```
+PATCH /api/v1/looks/{lookId}/videos/{videoId}/set-default
+```
+
+**✅ CORRECT - Use the video-jobs endpoint:**
+```
+PATCH /api/v1/video-jobs/{videoId}/set-default-for-look/{lookId}
+```
+
+To set a video as the default for a look, use the video-jobs endpoint with the look ID as a path parameter.
+
+---
+
+### Overview
+This guide covers integrating the Video Jobs listing and deletion APIs. These endpoints allow users to view all their video generation jobs and delete specific jobs.
+
+---
+
+## 1. List All Video Jobs
+
+### Endpoint Details
+**URL:** `GET /api/v1/video-jobs`  
+**Authentication:** Required (JWT Bearer Token)  
+**Description:** Retrieve all video generation jobs for the authenticated user with pagination support.
+
+### Request Parameters
+- `skip` (query, optional): Number of jobs to skip (default: 0)
+- `limit` (query, optional): Number of jobs to return (default: 20, max: 100)
+
+### Example Request
+```javascript
+const listVideoJobs = async (skip = 0, limit = 20) => {
+  const token = localStorage.getItem('authToken'); // or from your auth context
+  
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/v1/video-jobs?skip=${skip}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Unauthorized - Please login again');
+      if (response.status === 403) throw new Error('Forbidden - Access denied');
+      throw new Error(`Failed to fetch video jobs: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data; // Returns { items: [...], total: number, skip: number, limit: number }
+  } catch (error) {
+    console.error('Error fetching video jobs:', error);
+    throw error;
+  }
+};
+```
+
+### Response Schema
+```json
+{
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "SUCCEEDED",
+      "prompt": "A beautiful sunset over mountains",
+      "model": "models/gemini-2.0-flash-001",
+      "resolution": "1280x720",
+      "aspectRatio": "16:9",
+      "durationSeconds": 5,
+      "cloudinary_url": "https://res.cloudinary.com/..../video.mp4",
+      "progress_percentage": 100,
+      "mockMode": false,
+      "created_at": "2025-11-02T10:30:00.000Z",
+      "updated_at": "2025-11-02T10:35:00.000Z"
+    }
+  ],
+  "total": 42,
+  "skip": 0,
+  "limit": 20
+}
+```
+
+### Response Status Codes
+- **200 OK**: Successfully retrieved video jobs
+- **401 Unauthorized**: Invalid or missing authentication token
+- **403 Forbidden**: Access denied
+- **500 Internal Server Error**: Server error
+
+### Frontend Usage Examples
+
+#### Basic Listing (First Page)
+```javascript
+const handleLoadJobs = async () => {
+  try {
+    setLoading(true);
+    const data = await listVideoJobs(0, 20);
+    setVideoJobs(data.items);
+    setTotal(data.total);
+  } catch (error) {
+    showErrorToast(error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+#### Pagination
+```javascript
+const handlePagination = async (pageNumber) => {
+  const skip = (pageNumber - 1) * 20;
+  const data = await listVideoJobs(skip, 20);
+  setVideoJobs(data.items);
+  setCurrentPage(pageNumber);
+};
+```
+
+#### Infinite Scroll / Load More
+```javascript
+const handleLoadMore = async () => {
+  try {
+    setLoading(true);
+    const data = await listVideoJobs(videoJobs.length, 20);
+    setVideoJobs(prev => [...prev, ...data.items]);
+  } catch (error) {
+    showErrorToast(error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+#### Display Status Badge
+```javascript
+const getStatusColor = (status) => {
+  const colors = {
+    'PENDING': '#FFA500',    // Orange
+    'RUNNING': '#4A90E2',    // Blue
+    'SUCCEEDED': '#50C878',  // Green
+    'FAILED': '#E74C3C'      // Red
+  };
+  return colors[status] || '#999';
+};
+
+const getStatusLabel = (status) => {
+  const labels = {
+    'PENDING': 'Processing...',
+    'RUNNING': 'Generating...',
+    'SUCCEEDED': 'Completed',
+    'FAILED': 'Failed'
+  };
+  return labels[status] || status;
+};
+```
+
+---
+
+## 2. Delete a Video Job
+
+### Endpoint Details
+**URL:** `DELETE /api/v1/video-jobs/{jobId}`  
+**Authentication:** Required (JWT Bearer Token)  
+**Description:** Delete a specific video generation job. Only the job owner can delete their jobs. Admins can delete any job.
+
+### Path Parameters
+- `jobId` (required): The UUID of the video job to delete
+
+### Example Request
+```javascript
+const deleteVideoJob = async (jobId) => {
+  const token = localStorage.getItem('authToken');
+  
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/v1/video-jobs/${jobId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Unauthorized - Please login again');
+      if (response.status === 403) throw new Error('Forbidden - You cannot delete this job');
+      if (response.status === 404) throw new Error('Video job not found');
+      throw new Error(`Failed to delete video job: ${response.statusText}`);
+    }
+    
+    return { success: true, message: 'Video job deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting video job:', error);
+    throw error;
+  }
+};
+```
+
+### Response
+- **204 No Content**: Successfully deleted (no body)
+- **401 Unauthorized**: Invalid or missing authentication token
+- **403 Forbidden**: User doesn't own the job (and is not an admin)
+- **404 Not Found**: Video job not found
+- **500 Internal Server Error**: Server error
+
+### Frontend Usage Examples
+
+#### Delete with Confirmation
+```javascript
+const handleDeleteJob = async (jobId, jobTitle) => {
+  const confirmed = await showConfirmDialog(
+    'Delete Video Job?',
+    `Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`
+  );
+  
+  if (!confirmed) return;
+  
+  try {
+    setDeleting(true);
+    await deleteVideoJob(jobId);
+    
+    // Remove from UI
+    setVideoJobs(prev => prev.filter(job => job.id !== jobId));
+    showSuccessToast('Video job deleted');
+  } catch (error) {
+    showErrorToast(error.message);
+  } finally {
+    setDeleting(false);
+  }
+};
+```
+
+#### Delete with Loading State
+```javascript
+const [deletingJobId, setDeletingJobId] = useState(null);
+
+const renderJobActions = (job) => {
+  const isDeleting = deletingJobId === job.id;
+  
+  return (
+    <button 
+      onClick={() => handleDeleteJob(job.id, job.prompt)}
+      disabled={isDeleting || job.status === 'RUNNING'}
+      className="btn-danger"
+    >
+      {isDeleting ? 'Deleting...' : 'Delete'}
+    </button>
+  );
+};
+```
+
+#### Batch Delete
+```javascript
+const handleBatchDelete = async (selectedJobIds) => {
+  const confirmed = await showConfirmDialog(
+    'Delete Multiple Jobs?',
+    `Delete ${selectedJobIds.length} video job(s)? This cannot be undone.`
+  );
+  
+  if (!confirmed) return;
+  
+  try {
+    setDeleting(true);
+    const results = await Promise.allSettled(
+      selectedJobIds.map(id => deleteVideoJob(id))
+    );
+    
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    
+    // Refresh the list
+    await handleLoadJobs();
+    
+    showInfoToast(`Deleted ${succeeded} job(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+  } catch (error) {
+    showErrorToast(error.message);
+  } finally {
+    setDeleting(false);
+  }
+};
+```
+
+---
+
+## 3. Set Video as Default for a Look
+
+### Endpoint Details
+**URL:** `PATCH /api/v1/video-jobs/{videoId}/set-default-for-look/{lookId}`  
+**Authentication:** Required (JWT Bearer Token)  
+**Description:** Set a video job as the default variation for a specific look. Only the video and look owner can perform this action. Setting a new default automatically unsets the previous default.
+
+### Path Parameters
+- `videoId` (required): The UUID of the video job
+- `lookId` (required): The UUID of the look
+
+### Example Request
+```javascript
+const setVideoAsDefault = async (videoId, lookId) => {
+  const token = localStorage.getItem('authToken');
+  
+  try {
+    const response = await fetch(
+      `${API_BASE}/api/v1/video-jobs/${videoId}/set-default-for-look/${lookId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Unauthorized - Please login again');
+      if (response.status === 403) throw new Error('Forbidden - You cannot modify this look');
+      if (response.status === 404) throw new Error('Video or look not found');
+      if (response.status === 400) throw new Error('Video is not associated with this look');
+      throw new Error(`Failed to set default: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error setting video as default:', error);
+    throw error;
+  }
+};
+```
+
+### Response Schema
+```json
+{
+  "message": "Video set as default successfully",
+  "videoId": "550e8400-e29b-41d4-a716-446655440000",
+  "lookId": "9b8322e4-7c38-4675-b86f-f2c68f8f13e9",
+  "isDefault": true
+}
+```
+
+### Response Status Codes
+- **200 OK**: Successfully set as default
+- **400 Bad Request**: Video is not associated with the look
+- **401 Unauthorized**: Invalid or missing authentication token
+- **403 Forbidden**: User doesn't own the look (and is not an admin)
+- **404 Not Found**: Video or look not found
+- **500 Internal Server Error**: Server error
+
+### Frontend Usage Example
+
+```javascript
+const handleSetAsDefault = async (videoId, lookId) => {
+  try {
+    setSettingDefault(true);
+    const result = await setVideoAsDefault(videoId, lookId);
+    
+    // Update UI - show badge/indicator that this is now the default
+    console.log(`✅ ${result.message}`);
+    showSuccessToast('Video set as default');
+    
+    // Optionally refresh the videos list to update UI
+    await refreshVideosForLook(lookId);
+  } catch (error) {
+    showErrorToast(error.message);
+  } finally {
+    setSettingDefault(false);
+  }
+};
+```
+
+---
+
+## 4. Combining List + Delete + Set Default Operations
+
+### Video Jobs Management Component
+```javascript
+import { useState, useEffect } from 'react';
+
+const VideoJobsManager = () => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  
+  useEffect(() => {
+    loadJobs();
+  }, [currentPage]);
+  
+  const loadJobs = async () => {
+    try {
+      setLoading(true);
+      const skip = (currentPage - 1) * itemsPerPage;
+      const data = await listVideoJobs(skip, itemsPerPage);
+      setJobs(data.items);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDelete = async (jobId) => {
+    try {
+      setDeleting(jobId);
+      await deleteVideoJob(jobId);
+      setJobs(prev => prev.filter(j => j.id !== jobId));
+      setTotal(prev => prev - 1);
+    } catch (error) {
+      console.error('Failed to delete job:', error);
+    } finally {
+      setDeleting(null);
+    }
+  };
+  
+  const totalPages = Math.ceil(total / itemsPerPage);
+  
+  return (
+    <div className="video-jobs-container">
+      <h2>Video Generation Jobs ({total})</h2>
+      
+      {loading ? (
+        <div>Loading...</div>
+      ) : jobs.length === 0 ? (
+        <div>No video jobs yet</div>
+      ) : (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Status</th>
+                <th>Prompt</th>
+                <th>Duration</th>
+                <th>Progress</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map(job => (
+                <tr key={job.id}>
+                  <td>{new Date(job.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <span 
+                      style={{ color: getStatusColor(job.status) }}
+                    >
+                      {getStatusLabel(job.status)}
+                    </span>
+                  </td>
+                  <td>{job.prompt.substring(0, 50)}...</td>
+                  <td>{job.durationSeconds}s</td>
+                  <td>
+                    <div className="progress-bar">
+                      <div 
+                        style={{ width: `${job.progress_percentage}%` }}
+                      >
+                        {job.progress_percentage}%
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => handleDelete(job.id)}
+                      disabled={deleting === job.id}
+                      className="btn-small btn-danger"
+                    >
+                      {deleting === job.id ? '...' : '✕'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          <div className="pagination">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={page === currentPage ? 'active' : ''}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default VideoJobsManager;
+```
+
+---
+
+## 4. Error Handling Best Practices
+
+```javascript
+const handleApiError = (error, context = '') => {
+  console.error(`Error in ${context}:`, error);
+  
+  if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+    // Redirect to login
+    window.location.href = '/login';
+    return 'Session expired. Please login again.';
+  } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+    return 'You do not have permission to perform this action.';
+  } else if (error.message.includes('404') || error.message.includes('not found')) {
+    return 'The requested resource was not found.';
+  } else if (error.message.includes('5')) {
+    return 'Server error. Please try again later.';
+  } else {
+    return error.message || 'An unknown error occurred.';
+  }
+};
+```
+
+---
+
+## 5. Integration Checklist
+
+- [ ] Implement `listVideoJobs()` function with error handling
+- [ ] Implement `deleteVideoJob()` function with error handling
+- [ ] Create a Video Jobs list/table component
+- [ ] Add pagination support
+- [ ] Add status color coding and labels
+- [ ] Add delete confirmation dialog
+- [ ] Add loading states during fetch and delete
+- [ ] Add error toast notifications
+- [ ] Handle unauthorized (401) responses
+- [ ] Handle permission denied (403) responses
+- [ ] Add empty state when no jobs exist
+- [ ] Consider adding refresh button
+- [ ] Consider adding filters by status (PENDING, RUNNING, SUCCEEDED, FAILED)
+- [ ] Consider adding export/download functionality for videos
+- [ ] Test all edge cases and error scenarios
+
+---
+
+## 6. API Base URL Configuration
+
+Ensure your `API_BASE` environment variable is set correctly:
+
+**Development (Local):**
+```
+API_BASE=http://localhost:8000
+```
+
+**Development (ngrok):**
+```
+API_BASE=https://zestfully-chalky-nikia.ngrok-free.dev/AIStudio
+```
+
+**Production:**
+```
+API_BASE=https://ai-studio-backend-ijkp.onrender.com
+```
+
+All video jobs endpoints are prefixed with `/api/v1/video-jobs`, so:
+- List: `${API_BASE}/api/v1/video-jobs`
+- Delete: `${API_BASE}/api/v1/video-jobs/{jobId}`
+
+---
+
+## 7. Quick Reference
+
+| Operation | Method | Endpoint | Auth | Returns |
+|-----------|--------|----------|------|---------|
+| List all jobs | GET | `/api/v1/video-jobs?skip=0&limit=20` | Required | 200 (jobs list) |
+| Delete a job | DELETE | `/api/v1/video-jobs/{jobId}` | Required | 204 (no content) |
+| Get job status | GET | `/api/v1/video-jobs/{jobId}` | Required | 200 (job details) |
+| Download video | GET | `/api/v1/video-jobs/{jobId}/download` | Required | 200 (video file) |
+
+---
+
+**Last Updated:** November 2, 2025

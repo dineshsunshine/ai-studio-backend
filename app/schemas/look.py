@@ -85,6 +85,8 @@ class LookResponse(LookBase):
     visibility: LookVisibility = Field(..., description="Visibility setting: private, shared, or public")
     shared_with: List[SharedUserInfo] = Field(default=[], alias="sharedWith", description="Users this look is shared with")
     videos: List['VideoInLook'] = Field(default=[], description="Videos created from this look (backward compatible: empty list if none)")
+    default_thumbnail_type: str = Field(default="image", alias="defaultThumbnailType", description="What is shown as thumbnail: 'image' (default) or 'video'")
+    default_thumbnail_url: Optional[str] = Field(None, alias="defaultThumbnailUrl", description="URL of the current default thumbnail (image or video URL)")
     created_at: str = Field(..., alias="createdAt", description="Creation timestamp")
     updated_at: str = Field(..., alias="updatedAt", description="Last update timestamp")
     

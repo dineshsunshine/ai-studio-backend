@@ -1,0 +1,96 @@
+## 🔧 Frontend Correction: Set Video as Default for Look
+
+### What Was Wrong
+Your frontend was trying to use these non-existent endpoints:
+
+**❌ DELETE endpoint (WRONG):**
+```
+DELETE /api/v1/looks/{lookId}/videos/{videoId}
+```
+
+**❌ PATCH endpoint (WRONG):**
+```
+PATCH /api/v1/looks/{lookId}/videos/{videoId}/set-default
+```
+
+---
+
+### What's Correct ✅
+
+#### 1. Delete a Video Job
+Use the video-jobs endpoint:
+```
+DELETE /api/v1/video-jobs/{videoId}
+```
+
+**Example:**
+```javascript
+const deleteVideo = async (videoId) => {
+  const token = localStorage.getItem('authToken');
+  const response = await fetch(
+    `${API_BASE}/api/v1/video-jobs/${videoId}`,
+    {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  return response.status === 204; // Success
+};
+```
+
+---
+
+#### 2. Set a Video as Default for a Look
+Use this new endpoint:
+```
+PATCH /api/v1/video-jobs/{videoId}/set-default-for-look/{lookId}
+```
+
+**Example:**
+```javascript
+const setVideoAsDefault = async (videoId, lookId) => {
+  const token = localStorage.getItem('authToken');
+  const response = await fetch(
+    `${API_BASE}/api/v1/video-jobs/${videoId}/set-default-for-look/${lookId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  
+  if (response.status === 200) {
+    const data = await response.json();
+    console.log('✅', data.message);
+    return true;
+  }
+  return false;
+};
+```
+
+---
+
+### Endpoint Reference
+
+| Operation | Method | Endpoint | Notes |
+|-----------|--------|----------|-------|
+| List videos | GET | `/api/v1/video-jobs?skip=0&limit=20` | Lists all videos (query by look_id in frontend) |
+| Get video | GET | `/api/v1/video-jobs/{videoId}` | Get single video details |
+| Create video | POST | `/api/v1/video-jobs` | Create new video (optional lookId param) |
+| Delete video | DELETE | `/api/v1/video-jobs/{videoId}` | Delete a video job |
+| Set as default | PATCH | `/api/v1/video-jobs/{videoId}/set-default-for-look/{lookId}` | Set as default for look |
+| Download video | GET | `/api/v1/video-jobs/{videoId}/download` | Get video file |
+
+---
+
+### Key Points
+
+✅ All video operations use `/api/v1/video-jobs` endpoints  
+✅ Never use `/api/v1/looks/{lookId}/videos/` - this path doesn't exist  
+✅ To set a default video, include the `lookId` in the path  
+✅ Setting a new default automatically unsets the previous default  
+✅ Only the video owner or admins can delete or set defaults  
+
+---
+
+**See full integration guide:** `FRONTEND_VIDEO_JOBS_MANAGEMENT.txt`
+

@@ -1,0 +1,176 @@
+## 🎬 Look Thumbnail Display Logic - Frontend Integration Guide
+
+### Overview
+Each look now returns **two new fields** that tell the frontend what to display as the thumbnail:
+- `defaultThumbnailType`: Either `"image"` or `"video"`
+- `defaultThumbnailUrl`: The actual URL to display (image or video)
+
+By default, the **image** is shown. But if a user sets a video as the default, the **video URL** is returned instead.
+
+---
+
+## New Fields in LookResponse
+
+```json
+{
+  "id": "look-uuid",
+  "title": "Look Title",
+  "generatedImageUrl": "https://..../image.png",
+  "defaultThumbnailType": "video",  // NEW: "image" or "video"
+  "defaultThumbnailUrl": "https://res.cloudinary.com/.../video.mp4",  // NEW: the URL to display
+  "videos": [
+    { "id": "video-id", "isDefault": true, ... },
+    { "id": "video-id", "isDefault": false, ... }
+  ],
+  ...
+}
+```
+
+---
+
+## Display Logic
+
+### Simple Implementation (Recommended)
+
+```javascript
+// Instead of always showing the image:
+// ❌ <img src={look.generatedImageUrl} />
+
+// Use the new default thumbnail field:
+// ✅ 
+const getThumbnailElement = (look) => {
+  const isVideo = look.defaultThumbnailType === "video";
+  
+  if (isVideo) {
+    return (
+      <video 
+        src={look.defaultThumbnailUrl} 
+        controls 
+        poster={look.generatedImageUrl}
+        style={{ width: "100%", height: "auto" }}
+      />
+    );
+  } else {
+    return (
+      <img 
+        src={look.defaultThumbnailUrl} 
+        alt={look.title}
+        style={{ width: "100%", height: "auto" }}
+      />
+    );
+  }
+};
+
+// Usage in list view:
+<div className="look-card">
+  {getThumbnailElement(look)}
+  <h3>{look.title}</h3>
+</div>
+```
+
+---
+
+## Key Points for Frontend
+
+✅ **Always use `defaultThumbnailUrl`** instead of checking for videos manually  
+✅ **Check `defaultThumbnailType`** to determine if it's a video or image  
+✅ **Default behavior**: Shows image unless user explicitly set a video as default  
+✅ **When user sets video as default**: `defaultThumbnailType` becomes `"video"`  
+✅ **When user unsets video**: `defaultThumbnailType` reverts to `"image"`  
+
+---
+
+## Response Examples
+
+### Example 1: Look with Default Image
+```json
+{
+  "title": "Summer Look",
+  "defaultThumbnailType": "image",
+  "defaultThumbnailUrl": "https://.../generated_image.png",
+  "generatedImageUrl": "https://.../generated_image.png",
+  "videos": [
+    { "id": "vid1", "status": "SUCCEEDED", "isDefault": false }
+  ]
+}
+```
+
+### Example 2: Look with Default Video
+```json
+{
+  "title": "Summer Look",
+  "defaultThumbnailType": "video",
+  "defaultThumbnailUrl": "https://res.cloudinary.com/.../video.mp4",
+  "generatedImageUrl": "https://.../generated_image.png",
+  "videos": [
+    { "id": "vid1", "status": "SUCCEEDED", "isDefault": true }
+  ]
+}
+```
+
+---
+
+## Frontend Workflow
+
+### 1. Fetch Looks List
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/looks?skip=0&limit=20`, {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+const { items } = await response.json();
+```
+
+### 2. Render Thumbnail
+```javascript
+items.map(look => (
+  <div key={look.id} className="look-thumbnail">
+    {look.defaultThumbnailType === "video" ? (
+      <video src={look.defaultThumbnailUrl} controls />
+    ) : (
+      <img src={look.defaultThumbnailUrl} alt={look.title} />
+    )}
+  </div>
+))
+```
+
+### 3. Video Badge (Optional)
+You can add a small badge/icon to indicate which looks have videos:
+```javascript
+{look.defaultThumbnailType === "video" && (
+  <div className="video-badge">▶️ Video</div>
+)}
+```
+
+---
+
+## API Endpoints Affected
+
+All endpoints that return `LookResponse` now include the new fields:
+
+| Endpoint | Method | Returns |
+|----------|--------|---------|
+| `/api/v1/looks/` | GET | LookListResponse (items array) |
+| `/api/v1/looks/{id}` | GET | LookResponse |
+| `/api/v1/looks/` | POST | LookResponse |
+| `/api/v1/looks/{id}` | PATCH | LookResponse |
+| `/api/v1/looks/{id}/visibility` | PATCH | LookResponse |
+
+All include:
+- `defaultThumbnailType`: "image" or "video"
+- `defaultThumbnailUrl`: URL to display
+
+---
+
+## Integration Checklist
+
+- [ ] Update look list rendering to use `defaultThumbnailUrl`
+- [ ] Add logic to render `<video>` when `defaultThumbnailType === "video"`
+- [ ] Add logic to render `<img>` when `defaultThumbnailType === "image"`
+- [ ] Test with looks that have videos set as default
+- [ ] Test with looks that don't have videos
+- [ ] Add video badge/indicator (optional)
+- [ ] Test on production with real data
+
+---
+
+**Last Updated:** November 2, 2025

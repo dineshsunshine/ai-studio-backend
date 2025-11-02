@@ -1,103 +1,116 @@
-# Look Videos Integration - API Guide
+# Look Videos Integration - Simplified API Guide
 
 ## Overview
-Enhancement to link generated videos with looks and set one as default.
+Enhancement to link generated videos with looks using existing video API.
 
-**Existing Features (Unchanged):**
-- Users create looks with products
-- Users generate videos independently via Video Generation API
-- Both work standalone
+**Key Principle:** No new endpoints needed. Frontend passes `look_id` when creating videos.
 
-**New Capability:**
-- Associate videos with specific looks
-- Set one video as default for a look
-- Manage video associations
+## Simple Integration Flow
 
-## Important Notes
-
-✅ Videos continue to generate independently - no changes to video generation flow
-✅ This is purely an association/linking feature on top of existing video system
-✅ Looks without videos work perfectly (backward compatible)
-✅ Only look owner can manage video associations for their looks
-
-## API Endpoints
-
-### 1. Create/Link Video to Look
+### Frontend Flow:
 ```
-POST /api/v1/looks/{look_id}/videos
+1. User generates video FOR a specific look
+2. Frontend calls: POST /api/v1/video-jobs?look_id={lookId}
+3. Backend automatically links the video to the look
+4. Video appears in look details
+```
+
+### Standalone Videos (Unchanged):
+```
+1. User generates video independently  
+2. Frontend calls: POST /api/v1/video-jobs (no look_id)
+3. Video created without any look association
+4. Works exactly as before
+```
+
+## API Integration
+
+### Create Video (With or Without Look)
+
+```
+POST /api/v1/video-jobs
 Content-Type: multipart/form-data
 Authorization: Bearer <JWT_TOKEN>
 
-Body (same params as Video Generation API):
+Form Data:
 - prompt: Optional text prompt
 - model: Video model (e.g., 'veo-3.1-generate-preview')
 - resolution: '720p' or '1080p'
 - aspectRatio: '16:9' or '9:16'
 - durationSeconds: 4 or 8
 - generateAudio: Optional boolean (default: false)
+- mockMode: 'true' or 'false' (REQUIRED)
+- lookId: Optional UUID of look to link video to (NEW)
 
 Response: 202 Accepted
 {
   "id": "video-id-uuid",
   "status": "PENDING",
   "cloudinaryUrl": null,
-  "isDefault": false,
   "createdAt": "2025-11-02T...",
   "progressPercentage": 0
 }
 ```
 
-### 2. List Videos for a Look
-```
-GET /api/v1/looks/{look_id}/videos
-Authorization: Bearer <JWT_TOKEN>
+### Example 1: Video for Specific Look
 
-Response: 200 OK
-[
-  {
-    "id": "video-id-1",
-    "status": "SUCCEEDED",
-    "cloudinaryUrl": "https://res.cloudinary.com/...",
-    "isDefault": true,
-    "createdAt": "2025-11-02T...",
-    "progressPercentage": 100
-  },
-  {
-    "id": "video-id-2",
-    "status": "RUNNING",
-    "cloudinaryUrl": null,
-    "isDefault": false,
-    "createdAt": "2025-11-01T...",
-    "progressPercentage": 45
-  }
-]
+```javascript
+// Frontend code
+const formData = new FormData();
+formData.append('prompt', 'Model wearing the dress');
+formData.append('model', 'veo-3.1-generate-preview');
+formData.append('resolution', '720p');
+formData.append('aspectRatio', '16:9');
+formData.append('durationSeconds', 8);
+formData.append('generateAudio', false);
+formData.append('mockMode', 'false');
+formData.append('lookId', look.id);  // ← Link to specific look
+
+const response = await fetch('/api/v1/video-jobs', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` },
+  body: formData
+});
 ```
 
-### 3. Set Video as Default
+### Example 2: Standalone Video (No Look Association)
+
+```javascript
+// Frontend code - same endpoint, just no lookId
+const formData = new FormData();
+formData.append('prompt', 'A sunset scene');
+formData.append('model', 'veo-3.1-generate-preview');
+formData.append('resolution', '720p');
+formData.append('aspectRatio', '16:9');
+formData.append('durationSeconds', 8);
+formData.append('generateAudio', false);
+formData.append('mockMode', 'false');
+// No lookId - video created independently
+
+const response = await fetch('/api/v1/video-jobs', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` },
+  body: formData
+});
 ```
-PATCH /api/v1/looks/{look_id}/videos/{video_id}/set-default
-Authorization: Bearer <JWT_TOKEN>
 
-Response: 204 No Content
+## Backend Behavior
 
-Important: Only one video per look can be default.
-Setting a new default unsets the previous one automatically.
-```
+**If look_id is provided:**
+1. Verify look exists
+2. Verify current user owns the look
+3. Create video job
+4. Link video to look in `look_videos` table
+5. Queue video generation
 
-### 4. Delete/Unlink Video from Look
-```
-DELETE /api/v1/looks/{look_id}/videos/{video_id}
-Authorization: Bearer <JWT_TOKEN>
+**If look_id is NOT provided:**
+1. Create video job
+2. Queue video generation
+3. No look association
 
-Response: 204 No Content
+## Updated Look Response
 
-Important: If the video is default, it's automatically unset first.
-Video is removed from storage (Cloudinary or local).
-```
-
-## Look Response Changes
-
-All look responses now include `videos` array (empty if no videos):
+Look responses include `videos` array (empty if no videos):
 
 ```json
 {
@@ -106,7 +119,6 @@ All look responses now include `videos` array (empty if no videos):
   "generatedImageUrl": "https://...",
   "products": [...],
   "visibility": "private",
-  "sharedWith": [],
   "videos": [
     {
       "id": "video-id-1",
@@ -122,84 +134,88 @@ All look responses now include `videos` array (empty if no videos):
 }
 ```
 
-## Key Implementation Points
+## Permission Logic
 
-### 1. Permission Control
-- Only look owner can create/manage videos
-- 403 Forbidden for non-owners
-- Check user.id === look.userId before allowing operations
+**Backend validates:**
+- look_id exists in database
+- current_user.id === look.user_id
+- Returns 400 Bad Request if validation fails
 
-### 2. Video Status Handling
+**Frontend can:**
+- Only pass look_id for looks they own
+- Omit look_id for standalone videos
+- Always works for any authenticated user
+
+## Video Status Handling
+
+Same as existing video API:
 - PENDING: Video is being generated
 - RUNNING: Video generation in progress
-- SUCCEEDED: Video ready and cloudinaryUrl populated
+- SUCCEEDED: Video ready (cloudinaryUrl populated)
 - FAILED: Video generation failed
-- Only use cloudinaryUrl when status === "SUCCEEDED"
 
-### 3. Default Video Logic
-- Default video should only be used if: `isDefault === true && status === "SUCCEEDED"`
-- If both conditions met, use `cloudinaryUrl`
-- Otherwise fallback to look `generatedImageUrl`
+## Token Consumption
 
-### 4. Token Consumption
-- Creating a video from look consumes 50 tokens
-- Same as standalone video generation
-- Charge happens on job creation, not on completion
+- 50 tokens per video job creation
+- Same whether linked to look or standalone
+- Charged on job creation, not completion
 
-### 5. Concurrent Limit
-- User can have max 3 concurrent video generation jobs
-- 429 Too Many Requests if limit exceeded
-- Check before creating new video
+## Concurrent Job Limit
 
-## Database Migration
-
-Before using (required once):
-```
-POST /api/v1/migrate/look-videos
-Authorization: Bearer <ADMIN_TOKEN>
-
-Response: 
-- 200 OK with status: "already_migrated" (if table exists)
-- 200 OK with status: "success" (if table created)
-```
-
-Creates `look_videos` junction table. Safe to call multiple times.
+- Max 3 concurrent jobs per user
+- Same limit for all videos (look-linked or standalone)
+- 429 Too Many Requests if exceeded
 
 ## Error Codes
 
-| Status | Error | What to do |
-|--------|-------|-----------|
-| 403 | "Only the look owner can..." | Verify user owns the look |
-| 404 | "Look not found" | Verify look_id is correct |
-| 404 | "Video not associated..." | Video may have been deleted |
-| 402 | "Insufficient tokens" | User needs more tokens |
-| 429 | "Maximum 3 concurrent..." | Wait for existing jobs to complete |
+| Status | Error | Scenario |
+|--------|-------|----------|
+| 400 | "Invalid look_id" | Look not found or user doesn't own it |
+| 402 | "Insufficient tokens" | User out of tokens |
+| 429 | "Maximum 3 concurrent..." | Too many pending/running jobs |
 
-## Testing Endpoints
+## Database Migration
 
-Use Swagger UI: http://localhost:8000/docs
-
-Look for "Look Videos" section with these 4 endpoints:
-- POST /api/v1/looks/{look_id}/videos
-- GET /api/v1/looks/{look_id}/videos
-- PATCH /api/v1/looks/{look_id}/videos/{video_id}/set-default
-- DELETE /api/v1/looks/{look_id}/videos/{video_id}
-
-## Important: Standalone Videos Still Work
-
-Users can still generate videos without any look context:
+One-time setup (required once):
 ```
-POST /api/v1/video-jobs
+POST /api/v1/migrate/look-videos
+Authorization: Bearer <ADMIN_TOKEN>
 ```
 
-This is completely independent. The new endpoints are just:
-- A convenience to link videos to looks
-- An optional feature, not required
-- Does not affect existing video generation workflow
+Creates `look_videos` junction table for linking.
+
+## Key Implementation Points
+
+1. **Optional Parameter**: look_id is completely optional
+2. **User Validation**: Backend validates user owns the look
+3. **Backward Compatible**: Existing video flow unchanged
+4. **Same Endpoint**: No new endpoints to manage
+5. **Simple for Frontend**: Just add lookId to form data
+
+## Testing
+
+### Local Testing with Swagger:
+1. Open http://localhost:8000/docs
+2. Find POST /api/v1/video-jobs endpoint
+3. Fill in parameters
+4. Add lookId in form data to link to look
+5. Submit and monitor status
+
+### Production Testing:
+1. https://ai-studio-backend-ijkp.onrender.com/docs
+2. Same workflow as local
+
+## Why This Approach?
+
+✅ **No new endpoints** - reuse existing video API
+✅ **Simpler for frontend** - just add one parameter
+✅ **Backward compatible** - existing video flow unchanged
+✅ **Flexible** - can create videos standalone or linked
+✅ **Easy to implement** - minimal changes needed
 
 ## Support
 
-- Check video job details: GET /api/v1/video-jobs/{videoId}
+- Check video job status: GET /api/v1/video-jobs/{videoId}
 - Check look details: GET /api/v1/looks/{lookId}
-- Review logs for detailed errors
+- Video logs available in job response
 

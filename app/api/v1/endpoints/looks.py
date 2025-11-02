@@ -66,6 +66,40 @@ def serialize_look_videos(look_id: str, db: Session) -> List['VideoInLook']:
     
     return result
 
+
+def get_default_thumbnail(look: DBLook, db: Session) -> tuple:
+    """
+    Determine the default thumbnail for a look.
+    Returns: (thumbnail_type, thumbnail_url)
+    - thumbnail_type: 'image' or 'video'
+    - thumbnail_url: URL of the image or video
+    
+    Priority: If there's a default video, show it; otherwise show the image.
+    """
+    from sqlalchemy import and_
+    
+    # Check if there's a default video
+    default_video = db.execute(
+        look_videos.select().where(
+            and_(
+                look_videos.c.look_id == str(look.id),
+                look_videos.c.is_default == True
+            )
+        )
+    ).first()
+    
+    if default_video:
+        # Get the video job details
+        video_job = db.query(VideoJob).filter(
+            VideoJob.id == default_video[1]  # video_job_id is at index 1
+        ).first()
+        
+        if video_job and video_job.cloudinary_url:
+            return ("video", video_job.cloudinary_url)
+    
+    # Default to image
+    return ("image", look.generated_image_url)
+
 @router.post("/", response_model=LookResponse, status_code=status.HTTP_201_CREATED)
 async def create_look(
     look_data: LookCreate,
@@ -174,6 +208,10 @@ async def create_look(
         
         # Convert to dict with proper serialization
         from app.schemas.look import SharedUserInfo
+        
+        # Determine default thumbnail
+        thumb_type, thumb_url = get_default_thumbnail(new_look, db)
+        
         return LookResponse(
             id=str(new_look.id),
             title=new_look.title,
@@ -201,6 +239,9 @@ async def create_look(
                 }
                 for p in new_look.products
             ],
+            videos=serialize_look_videos(str(new_look.id), db),
+            defaultThumbnailType=thumb_type,
+            defaultThumbnailUrl=thumb_url,
             createdAt=new_look.created_at.isoformat(),
             updatedAt=new_look.updated_at.isoformat()
         )
@@ -322,6 +363,9 @@ async def list_looks(
                 }
                 for p in look.products
             ],
+            videos=serialize_look_videos(str(look.id), db),
+            defaultThumbnailType=get_default_thumbnail(look, db)[0],
+            defaultThumbnailUrl=get_default_thumbnail(look, db)[1],
             createdAt=look.created_at.isoformat(),
             updatedAt=look.updated_at.isoformat()
         )
@@ -394,6 +438,9 @@ async def get_look(
             }
             for p in look.products
         ],
+        videos=serialize_look_videos(str(look.id), db),
+        defaultThumbnailType=get_default_thumbnail(look, db)[0],
+        defaultThumbnailUrl=get_default_thumbnail(look, db)[1],
         createdAt=look.created_at.isoformat(),
         updatedAt=look.updated_at.isoformat()
     )
@@ -469,6 +516,9 @@ async def update_look(
                 }
                 for p in look.products
             ],
+            videos=serialize_look_videos(str(look.id), db),
+            defaultThumbnailType=get_default_thumbnail(look, db)[0],
+            defaultThumbnailUrl=get_default_thumbnail(look, db)[1],
             createdAt=look.created_at.isoformat(),
             updatedAt=look.updated_at.isoformat()
         )
@@ -563,6 +613,9 @@ async def update_look_visibility(
                 }
                 for p in look.products
             ],
+            videos=serialize_look_videos(str(look.id), db),
+            defaultThumbnailType=get_default_thumbnail(look, db)[0],
+            defaultThumbnailUrl=get_default_thumbnail(look, db)[1],
             createdAt=look.created_at.isoformat(),
             updatedAt=look.updated_at.isoformat()
         )

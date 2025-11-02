@@ -1,0 +1,75 @@
+## Video Jobs API - Associated Looks Support
+
+### Overview
+Video jobs now include associated look details in both list and detail endpoints. This allows frontend to display which looks are associated with each video.
+
+### API Changes
+
+**GET /api/v1/video-jobs** (List)
+- New field: `associatedLooks: LookBasic[]`
+- Returns lightweight look info for each video job
+
+**GET /api/v1/video-jobs/{jobId}** (Detail)
+- New field: `associatedLooks: LookBasic[]`
+- Full video details with associated looks
+
+### Response Structure
+
+```json
+{
+  "jobs": [
+    {
+      "id": "uuid",
+      "status": "SUCCEEDED",
+      "model": "veo-3.1-fast-generate-preview",
+      "resolution": "720p",
+      "aspectRatio": "16:9",
+      "durationSeconds": 4,
+      "cloudinaryUrl": "https://...",
+      "progressPercentage": 100,
+      "mockMode": true,
+      "createdAt": "2025-11-02T08:16:09.815602",
+      "updatedAt": "2025-11-02T08:16:21.092879",
+      "associatedLooks": [
+        {
+          "id": "9b8322e4-7c38-4675-b86f-f2c68f8f13e9",
+          "title": "Goddess Echoes in Lame",
+          "generatedImageUrl": "https://res.cloudinary.com/.../image.jpg"
+        }
+      ]
+    }
+  ],
+  "total": 36
+}
+```
+
+### Look Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Look ID |
+| `title` | string | Look title/name |
+| `generatedImageUrl` | string or null | Look cover image URL |
+
+### Frontend Use Cases
+
+1. **In video list**: Show look thumbnail or title next to video
+2. **In video detail**: Display all associated looks (one video can have multiple looks)
+3. **Link looks and videos**: Show user which looks this video is generated from
+
+### Example Usage
+
+```
+List videos → Show video + associated look thumbnail
+Detail view → Display all looks used to create this video
+```
+
+### Notes
+- `associatedLooks` can be empty (video not yet linked to looks)
+- `generatedImageUrl` may be null if look hasn't been rendered
+- Use look ID to fetch full look details if needed
+- Video can be associated with 0 or more looks
+
+---
+
+**Last Updated:** November 2, 2025
