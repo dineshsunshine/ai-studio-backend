@@ -76,6 +76,7 @@ Response Error (400/503):
 ENDPOINT 2: POST /api/v1/gemini/generate-image
 Purpose: Multi-modal image generation (looks, edits, boards)
 Token Cost: Handled via subscription system
+Model Used: gemini-2.5-flash-image (backend handles model selection)
 
 Request:
 {
@@ -106,8 +107,9 @@ Response Error (400/503):
 ─────────────────────────────────────────────────────────────────────────────
 
 ENDPOINT 3: POST /api/v1/gemini/generate-imagen
-Purpose: High-quality model/image generation (Imagen model)
+Purpose: High-quality model/image generation (Imagen)
 Token Cost: Handled via subscription system
+Model Used: gemini-2.5-flash-image (automatically selected for high-quality)
 
 Request (SIMPLIFIED for Imagen):
 {

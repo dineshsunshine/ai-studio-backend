@@ -115,17 +115,12 @@ const result = await response.json();
 const imageBase64 = result.imageBase64;  // Generated image
 ```
 
-USE CASES:
-- createLook()
-- editLook()
-- continueImageEditing() [multi-turn with history]
-- extractAndStageProducts()
-- generateBoardCoverImage()
+Use cases: createLook(), editLook(), continueImageEditing() [multi-turn with history], extractAndStageProducts(), generateBoardCoverImage()
 
 ─────────────────────────────────────────────────────────────────────────────
 
 ENDPOINT 3: POST /api/v1/gemini/generate-imagen
-Purpose: High-quality fashion model/image generation (Imagen model)
+Purpose: High-quality fashion model/image generation (uses gemini-2.5-flash-image)
 
 OLD FRONTEND CODE:
 ```javascript
@@ -156,8 +151,9 @@ const result = await response.json();
 const imageBase64 = result.imageBase64;  // Generated image
 ```
 
-USE CASES:
-- generateModelImage() [high-quality mode]
+NOTE: Backend automatically uses gemini-2.5-flash-image model for high-quality generation.
+
+Use cases: generateModelImage() [high-quality mode]
 
 ─────────────────────────────────────────────────────────────────────────────
 

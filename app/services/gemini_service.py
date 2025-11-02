@@ -166,9 +166,13 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini generate_image with model: {model}")
             
+            # Use gemini-2.5-flash-image for image generation
+            actual_model = "gemini-2.5-flash-image"
+            print(f"📝 Using model: {actual_model} for image generation")
+            
             # Build request parameters
             kwargs = {
-                "model": model,
+                "model": actual_model,
                 "contents": contents,
             }
             
@@ -188,7 +192,7 @@ class GeminiService:
             
             # Call Gemini API
             model_obj = genai.GenerativeModel(
-                model_name=model,
+                model_name=actual_model,
                 system_instruction=system_instruction
             )
             
@@ -228,7 +232,7 @@ class GeminiService:
         prompt: str,
         config: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Generate high-quality image using Imagen model."""
+        """Generate high-quality image using gemini-2.5-flash-image model."""
         if not self.api_key_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -237,23 +241,11 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini generate_imagen with prompt: {prompt[:50]}...")
             
-            # Imagen has a specific API
-            # For now, use the standard image generation with imagen-3.0-generate-001 model
-            model = "imagen-3.0-generate-001"
+            # Use gemini-2.5-flash-image for high-quality image generation
+            model = "gemini-2.5-flash-image"
+            print(f"📝 Using model: {model} for high-quality image generation")
             
             # Build request
-            kwargs = {
-                "model": model,
-                "prompt": prompt,
-            }
-            
-            if config:
-                if "numberOfImages" in config:
-                    kwargs["number_of_images"] = config["numberOfImages"]
-                if "aspectRatio" in config:
-                    kwargs["aspect_ratio"] = config["aspectRatio"]
-            
-            # Call Imagen API
             model_obj = genai.GenerativeModel(model_name=model)
             response = model_obj.generate_content(prompt)
             
@@ -262,10 +254,10 @@ class GeminiService:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
-                            print(f"✅ Imagen generation successful")
+                            print(f"✅ Image generation successful with gemini-2.5-flash-image")
                             return part.inline_data.data
             
-            raise ValueError("Imagen API did not return a valid image")
+            raise ValueError("Image generation did not return a valid image")
         
         except HTTPException:
             raise
