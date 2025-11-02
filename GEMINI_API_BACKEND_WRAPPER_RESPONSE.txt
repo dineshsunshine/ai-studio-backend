@@ -1,0 +1,334 @@
+===============================================================================
+GEMINI API BACKEND WRAPPER IMPLEMENTATION PLAN
+===============================================================================
+
+BACKEND RESPONSE TO FRONTEND REQUEST
+
+Dear Team,
+
+We fully support moving Gemini API calls to the backend for security and 
+centralization. Here's our implementation plan:
+
+===============================================================================
+1. IMPLEMENTATION TIMELINE & ARCHITECTURE
+===============================================================================
+
+✅ AGREED APPROACH:
+- Create 5 new secured endpoints under /api/v1/gemini/*
+- All endpoints require JWT authentication (user_id extracted from token)
+- Backend manages API_KEY securely via environment variables
+- Frontend sends clean JSON payloads with all parameters
+- Backend handles error propagation to frontend
+
+ARCHITECTURE:
+backend/app/api/v1/endpoints/gemini.py
+  ├── POST /gemini/generate-text
+  ├── POST /gemini/generate-image
+  ├── POST /gemini/generate-imagen
+  ├── POST /gemini/generate-json
+  └── POST /gemini/grounded-search
+
+backend/app/services/gemini_service.py (new)
+  ├── GeminiService class
+  ├── Error handling & retries
+  ├── API key injection
+  └── Response normalization
+
+===============================================================================
+2. ENDPOINT SPECIFICATIONS (CONFIRMED)
+===============================================================================
+
+All endpoints:
+- Require Authentication: YES (JWT header)
+- Rate Limiting: Per-user token consumption (existing system)
+- Error Status Codes: 400 (bad request), 401 (auth), 403 (forbidden), 503 (API error)
+- Timeout: 60 seconds per request
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 1: POST /api/v1/gemini/generate-text
+Purpose: Text generation (titles, descriptions, notes, image captions)
+Token Cost: Handled via subscription system (operation: "text_to_text")
+
+Request:
+{
+  "model": "gemini-2.5-flash",
+  "systemInstruction": "Optional system prompt",
+  "contents": {
+    "parts": [
+      { "text": "Your prompt here" },
+      { "inlineData": { "mimeType": "image/jpeg", "data": "base64..." } }
+    ]
+  },
+  "config": {
+    "maxOutputTokens": 100
+  }
+}
+
+Response Success (200):
+{ "text": "Generated text response" }
+
+Response Error (400/503):
+{ "error": "The Gemini API returned an error: [message]" }
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 2: POST /api/v1/gemini/generate-image
+Purpose: Multi-modal image generation (looks, edits, boards)
+Token Cost: Handled via subscription system
+
+Request:
+{
+  "model": "gemini-2.5-flash-image",
+  "systemInstruction": "Optional",
+  "contents": {
+    "parts": [
+      { "inlineData": { "mimeType": "image/jpeg", "data": "base64..." } },
+      { "text": "Your prompt" }
+    ]
+  },
+  "history": [
+    { "role": "user", "parts": [...] },
+    { "role": "model", "parts": [...] }
+  ],
+  "config": {
+    "responseModalities": ["IMAGE"],
+    "imageConfig": { "aspectRatio": "3:4" }
+  }
+}
+
+Response Success (200):
+{ "imageBase64": "base64-encoded-image" }
+
+Response Error (400/503):
+{ "error": "The Gemini API returned an error: [message]" }
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 3: POST /api/v1/gemini/generate-imagen
+Purpose: High-quality model/image generation (Imagen model)
+Token Cost: Handled via subscription system
+
+Request (SIMPLIFIED for Imagen):
+{
+  "prompt": "hyper-realistic full body fashion model...",
+  "config": {
+    "numberOfImages": 1,
+    "aspectRatio": "3:4"
+  }
+}
+
+Response Success (200):
+{ "imageBase64": "base64-encoded-image" }
+
+Response Error (400/503):
+{ "error": "The Gemini API returned an error: [message]" }
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 4: POST /api/v1/gemini/generate-json
+Purpose: Structured JSON responses (schema-based)
+Token Cost: Handled via subscription system
+
+Request:
+{
+  "model": "gemini-2.5-flash",
+  "systemInstruction": "Optional",
+  "contents": {
+    "parts": [{ "text": "Your prompt" }]
+  },
+  "config": {
+    "responseMimeType": "application/json",
+    "responseSchema": {
+      "type": "object",
+      "properties": {
+        "newPrompt": { "type": "string" },
+        "improvementPercentage": { "type": "integer" }
+      },
+      "required": ["newPrompt", "improvementPercentage"]
+    }
+  }
+}
+
+Response Success (200):
+{
+  "newPrompt": "Improved prompt text",
+  "improvementPercentage": 85
+}
+
+Response Error (400/503):
+{ "error": "The Gemini API returned an error: [message]" }
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 5: POST /api/v1/gemini/grounded-search
+Purpose: Text generation grounded with Google Search
+Token Cost: Handled via subscription system
+
+Request:
+{
+  "model": "gemini-2.5-flash",
+  "systemInstruction": "You are a product research specialist...",
+  "contents": "Brand Name: ... Product Name: ...",
+  "config": {
+    "tools": [{ "googleSearch": {} }]
+  }
+}
+
+Response Success (200):
+{ "text": "[{\"key\": \"Material\", \"value\": \"...\"}]" }
+
+Response Error (400/503):
+{ "error": "The Gemini API returned an error: [message]" }
+
+===============================================================================
+3. IMPLEMENTATION DETAILS & PATTERNS
+===============================================================================
+
+ERROR HANDLING STRATEGY:
+✅ All Gemini API errors → 503 Service Unavailable (API is down)
+✅ Invalid request format → 400 Bad Request
+✅ Authentication errors → 401 Unauthorized
+✅ Permission errors (tokens) → 402 Payment Required (existing pattern)
+✅ Rate limiting → 429 Too Many Requests
+
+ERROR RESPONSE FORMAT (consistent across all endpoints):
+{
+  "error": "The Gemini API returned an error: [original Gemini error message]",
+  "code": "GEMINI_API_ERROR",
+  "timestamp": "2025-11-02T15:30:00Z"
+}
+
+TOKEN CONSUMPTION:
+All endpoints integrate with existing token system:
+- Frontend calls /api/v1/subscription/consume BEFORE hitting Gemini endpoint
+- OR backend deducts tokens internally during Gemini call
+- Operation names: "text_to_text", "multi_modal", "image_analysis", etc.
+
+BASE64 IMAGE HANDLING:
+- Frontend sends raw base64 strings (no data:image/jpeg;base64, prefix needed)
+- Backend validates MIME types: image/jpeg, image/png, image/webp, image/gif
+- Max image size: 5MB (enforced)
+- Backend converts to Gemini SDK format automatically
+
+AUTHENTICATION:
+- All endpoints require Authorization: Bearer {JWT_TOKEN} header
+- Current user ID extracted from JWT claims
+- Failed auth returns 401 Unauthorized
+
+===============================================================================
+4. IMPLEMENTATION SCHEDULE
+===============================================================================
+
+PHASE 1 (IMMEDIATE):
+□ Create /api/v1/endpoints/gemini.py with router
+□ Create /app/services/gemini_service.py with GeminiService class
+□ Implement generate-text endpoint
+□ Implement generate-image endpoint
+□ Add comprehensive error handling
+□ Add request validation middleware
+
+PHASE 2 (FOLLOW-UP):
+□ Implement generate-imagen endpoint
+□ Implement generate-json endpoint
+□ Implement grounded-search endpoint
+□ Add rate limiting per user
+□ Add request/response logging for debugging
+
+PHASE 3 (TESTING):
+□ Unit tests for each endpoint
+□ Integration tests with Gemini SDK
+□ Error scenario testing
+□ Performance testing under load
+
+===============================================================================
+5. CONFIGURATION & ENVIRONMENT
+===============================================================================
+
+Environment Variables Required:
+GEMINI_API_KEY=<your-api-key>          # FastAPI will load from .env
+GEMINI_API_VERSION=v1beta              # Already in config
+GEMINI_REQUEST_TIMEOUT=60               # Seconds
+GEMINI_MAX_RETRIES=2                    # For transient errors
+
+Existing Config File:
+backend/app/config.py (updated with new Gemini settings)
+
+===============================================================================
+6. FRONTEND INTEGRATION NOTES
+===============================================================================
+
+✅ DO:
+- Send complete configuration in request body
+- Include all model parameters (model name, config, etc.)
+- Handle 5xx errors as API temporary failures (show retry UI)
+- Cache API_KEY locally after auth (don't call every request)
+
+❌ DON'T:
+- Pass API_KEY from frontend (backend handles it)
+- Make multiple concurrent requests to same endpoint (rate limited)
+- Assume image sizes < 1MB (use compression)
+- Call endpoint without JWT token
+
+EXAMPLE FRONTEND USAGE:
+```javascript
+const response = await fetch(
+  'https://api.example.com/api/v1/gemini/generate-text',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${userToken}`
+    },
+    body: JSON.stringify({
+      model: "gemini-2.5-flash",
+      systemInstruction: "You are a helpful assistant",
+      contents: {
+        parts: [{ text: "Generate a product title for a blue jacket" }]
+      },
+      config: { maxOutputTokens: 50 }
+    })
+  }
+);
+
+const result = await response.json();
+if (response.ok) {
+  console.log(result.text); // Generated text
+} else {
+  console.error(result.error); // Error message from backend
+}
+```
+
+===============================================================================
+7. TESTING CHECKLIST
+===============================================================================
+
+Before marking endpoints as READY:
+
+□ Authentication working (401 on missing token)
+□ Permission checks working (403 on insufficient tokens)
+□ Text generation returns valid text
+□ Image generation returns valid base64 image
+□ JSON generation returns parsed JSON object
+□ Error handling propagates API errors correctly
+□ Base64 images of different sizes handled correctly
+□ Large payloads don't timeout (under 60s)
+□ Rate limiting works (429 on excessive requests)
+□ Logs show request/response for debugging
+
+===============================================================================
+8. SUPPORT & NEXT STEPS
+===============================================================================
+
+Questions or clarifications needed?
+- Confirm token consumption rules per endpoint
+- Confirm if pagination needed for large responses
+- Confirm max request payload size limit
+- Confirm if webhook/callback support needed
+
+Ready to start implementation?
+Let's start with Phase 1 endpoints (text + image generation).
+
+We'll update this document as we finalize implementation details.
+
+===============================================================================
