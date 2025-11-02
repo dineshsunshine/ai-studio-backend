@@ -1,0 +1,490 @@
+===============================================================================
+GEMINI API BACKEND INTEGRATION GUIDE FOR FRONTEND
+===============================================================================
+
+MIGRATION: Frontned calling Gemini SDK → Frontend calling Backend Endpoints
+DEADLINE: Replace all direct Gemini API calls with backend endpoints
+
+===============================================================================
+1. OVERVIEW
+===============================================================================
+
+OLD FLOW:
+Frontend → Get API key from environment → Call Gemini SDK directly
+
+NEW FLOW:
+Frontend → Call backend endpoint → Backend manages API key + calls Gemini
+
+BENEFITS:
+✅ API key never exposed to frontend
+✅ Centralized rate limiting and error handling
+✅ Token consumption tracked automatically
+✅ Easier to audit and monitor AI usage
+✅ Can switch Gemini API versions without frontend changes
+
+===============================================================================
+2. ENDPOINTS & MAPPING
+===============================================================================
+
+All endpoints:
+- Base URL: https://api.example.com/api/v1/gemini/
+- Authentication: Authorization: Bearer {JWT_TOKEN}
+- Request/Response: application/json
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 1: POST /api/v1/gemini/generate-text
+Purpose: Text generation
+
+OLD FRONTEND CODE:
+```javascript
+const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const result = await model.generateContent(userPrompt);
+const text = result.response.text();
+```
+
+NEW FRONTEND CODE:
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/gemini/generate-text`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`,
+    'ngrok-skip-browser-warning': 'true'
+  },
+  body: JSON.stringify({
+    model: 'gemini-2.5-flash',
+    systemInstruction: 'Optional system prompt',
+    contents: {
+      parts: [{ text: userPrompt }]
+    },
+    config: { maxOutputTokens: 100 }
+  })
+});
+
+const result = await response.json();
+const text = result.text;  // Generated text
+```
+
+USE CASES:
+- generateLookTitle()
+- improviseSceneDescription()
+- generateLookNotes()
+- describeModelFromImage()
+- decodeSceneFromImage()
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 2: POST /api/v1/gemini/generate-image
+Purpose: Image generation from text + optional reference images
+
+OLD FRONTEND CODE:
+```javascript
+const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash-image' });
+const result = await model.generateContent([userPrompt, imageFile]);
+const imageBase64 = result.response.data.data;
+```
+
+NEW FRONTEND CODE:
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/gemini/generate-image`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`,
+    'ngrok-skip-browser-warning': 'true'
+  },
+  body: JSON.stringify({
+    model: 'gemini-2.5-flash-image',
+    systemInstruction: 'Optional',
+    contents: {
+      parts: [
+        { text: userPrompt },
+        { inlineData: { mimeType: 'image/jpeg', data: base64ImageString } }
+      ]
+    },
+    history: [],  // For multi-turn chat
+    config: {
+      responseModalities: ['IMAGE'],
+      imageConfig: { aspectRatio: '3:4' }
+    }
+  })
+});
+
+const result = await response.json();
+const imageBase64 = result.imageBase64;  // Generated image
+```
+
+USE CASES:
+- createLook()
+- editLook()
+- continueImageEditing() [multi-turn with history]
+- extractAndStageProducts()
+- generateBoardCoverImage()
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 3: POST /api/v1/gemini/generate-imagen
+Purpose: High-quality fashion model/image generation (Imagen model)
+
+OLD FRONTEND CODE:
+```javascript
+const model = genai.getGenerativeModel({ model: 'imagen-3.0-generate-001' });
+const result = await model.generateContent(prompt);
+const imageBase64 = result.response.data.data;
+```
+
+NEW FRONTEND CODE:
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/gemini/generate-imagen`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`,
+    'ngrok-skip-browser-warning': 'true'
+  },
+  body: JSON.stringify({
+    prompt: 'Hyper-realistic full body fashion model...',
+    config: {
+      numberOfImages: 1,
+      aspectRatio: '3:4'
+    }
+  })
+});
+
+const result = await response.json();
+const imageBase64 = result.imageBase64;  // Generated image
+```
+
+USE CASES:
+- generateModelImage() [high-quality mode]
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 4: POST /api/v1/gemini/generate-json
+Purpose: Structured JSON responses (schema-validated)
+
+OLD FRONTEND CODE:
+```javascript
+const model = genai.getGenerativeModel({ 
+  model: 'gemini-2.5-flash',
+  generationConfig: { 
+    responseMimeType: 'application/json',
+    responseSchema: mySchema 
+  }
+});
+const result = await model.generateContent(prompt);
+const json = JSON.parse(result.response.text());
+```
+
+NEW FRONTEND CODE:
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/gemini/generate-json`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`,
+    'ngrok-skip-browser-warning': 'true'
+  },
+  body: JSON.stringify({
+    model: 'gemini-2.5-flash',
+    systemInstruction: 'Extract product details...',
+    contents: { parts: [{ text: userPrompt }] },
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'object',
+        properties: {
+          productName: { type: 'string' },
+          price: { type: 'number' },
+          description: { type: 'string' }
+        },
+        required: ['productName', 'price']
+      }
+    }
+  })
+});
+
+const result = await response.json();
+// result is already parsed JSON object: { productName: '...', price: 99 }
+```
+
+USE CASES:
+- improveSystemPrompt()
+- analyzeProductFromImage()
+- generateProductCopy()
+- generateVideoPromptsFromImage()
+
+─────────────────────────────────────────────────────────────────────────────
+
+ENDPOINT 5: POST /api/v1/gemini/grounded-search
+Purpose: Text generation grounded with live Google Search results
+
+OLD FRONTEND CODE:
+```javascript
+const model = genai.getGenerativeModel({ 
+  model: 'gemini-2.5-flash',
+  tools: [{ googleSearch: {} }]
+});
+const result = await model.generateContent(prompt);
+const text = result.response.text();
+```
+
+NEW FRONTEND CODE:
+```javascript
+const response = await fetch(`${API_BASE}/api/v1/gemini/grounded-search`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`,
+    'ngrok-skip-browser-warning': 'true'
+  },
+  body: JSON.stringify({
+    model: 'gemini-2.5-flash',
+    systemInstruction: 'You are a product research specialist...',
+    contents: 'Brand: Nike, Product: Air Max 90',
+    config: { tools: [{ googleSearch: {} }] }
+  })
+});
+
+const result = await response.json();
+const text = result.text;  // May contain JSON or plain text
+```
+
+USE CASES:
+- analyzeProductFromText() [with web search]
+
+===============================================================================
+3. ERROR HANDLING
+===============================================================================
+
+ALL ENDPOINTS return consistent error format:
+
+HTTP Status Codes:
+- 200 OK: Success
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Missing/invalid JWT token
+- 402 Payment Required: Insufficient tokens
+- 403 Forbidden: User doesn't have permission
+- 429 Too Many Requests: Rate limited
+- 503 Service Unavailable: Gemini API error or not configured
+
+Error Response Body:
+```json
+{
+  "error": "The Gemini API returned an error: [message]",
+  "code": "GEMINI_API_ERROR"
+}
+```
+
+FRONTEND HANDLING:
+```javascript
+async function callGeminiEndpoint(endpoint, payload) {
+  try {
+    // First: Check and consume tokens
+    const tokenCheck = await fetch(`${API_BASE}/api/v1/subscription/consume`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`
+      },
+      body: JSON.stringify({
+        operation: 'text_to_text',  // Or multi_modal, text_to_image, etc.
+        description: 'Calling Gemini API'
+      })
+    });
+    
+    if (tokenCheck.status === 402) {
+      const data = await tokenCheck.json();
+      showError(`Insufficient tokens. Need ${data.cost}, Have ${data.availableTokens}`);
+      return;
+    }
+
+    // Second: Call the actual endpoint
+    const response = await fetch(`${API_BASE}/api/v1/gemini/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    // Check response status
+    if (response.status === 200) {
+      const data = await response.json();
+      return { success: true, data };
+    } else if (response.status === 401) {
+      showError('Session expired - please login again');
+      redirectToLogin();
+    } else if (response.status === 503) {
+      showError('Gemini API is not available - please try again later');
+    } else {
+      const error = await response.json();
+      showError(error.error || 'Unknown error occurred');
+    }
+  } catch (err) {
+    showError(`Network error: ${err.message}`);
+  }
+}
+```
+
+===============================================================================
+4. IMPLEMENTATION CHECKLIST
+===============================================================================
+
+Replace each function with backend endpoint:
+
+TEXT GENERATION:
+□ generateLookTitle() → POST /generate-text
+□ improviseSceneDescription() → POST /generate-text
+□ generateLookNotes() → POST /generate-text
+□ describeModelFromImage() → POST /generate-text
+□ decodeSceneFromImage() → POST /generate-text
+
+IMAGE GENERATION:
+□ createLook() → POST /generate-image
+□ editLook() → POST /generate-image
+□ continueImageEditing() → POST /generate-image (with history)
+□ extractAndStageProducts() → POST /generate-image
+□ generateBoardCoverImage() → POST /generate-image
+□ generateModelImage() → POST /generate-imagen
+
+STRUCTURED DATA:
+□ improveSystemPrompt() → POST /generate-json
+□ analyzeProductFromImage() → POST /generate-json
+□ generateProductCopy() → POST /generate-json
+□ generateVideoPromptsFromImage() → POST /generate-json
+
+RESEARCH/SEARCH:
+□ analyzeProductFromText() → POST /grounded-search
+
+CLEANUP:
+□ Remove all direct genai imports from frontend
+□ Remove GEMINI_API_KEY from frontend .env
+□ Remove genai package dependency
+□ Update all error handling to use backend format
+
+===============================================================================
+5. TESTING GUIDE
+===============================================================================
+
+TEST EACH ENDPOINT:
+
+1. Test with missing authentication:
+curl -X POST http://localhost:8000/api/v1/gemini/generate-text \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemini-2.5-flash","contents":{"parts":[{"text":"hello"}]}}'
+Expected: 401 Unauthorized
+
+2. Test with valid token but insufficient balance:
+[Need to set up low token balance first]
+Expected: 402 Payment Required
+
+3. Test with valid token and sufficient balance:
+curl -X POST http://localhost:8000/api/v1/gemini/generate-text \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {JWT_TOKEN}" \
+  -d '{
+    "model":"gemini-2.5-flash",
+    "contents":{"parts":[{"text":"Generate a product title for a blue jacket"}]},
+    "config":{"maxOutputTokens":50}
+  }'
+Expected: 200 with {"text": "...generated text..."}
+
+4. Test image generation with base64:
+curl -X POST http://localhost:8000/api/v1/gemini/generate-image \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {JWT_TOKEN}" \
+  -d '{
+    "model":"gemini-2.5-flash-image",
+    "contents":{"parts":[
+      {"text":"Create a luxury fashion look"},
+      {"inlineData":{"mimeType":"image/jpeg","data":"[base64-image-string]"}}
+    ]},
+    "config":{"responseModalities":["IMAGE"],"imageConfig":{"aspectRatio":"3:4"}}
+  }'
+Expected: 200 with {"imageBase64": "...base64-image..."}
+
+5. Test JSON generation:
+curl -X POST http://localhost:8000/api/v1/gemini/generate-json \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {JWT_TOKEN}" \
+  -d '{
+    "model":"gemini-2.5-flash",
+    "contents":{"parts":[{"text":"Extract product details from image"}]},
+    "config":{
+      "responseMimeType":"application/json",
+      "responseSchema":{
+        "type":"object",
+        "properties":{"productName":{"type":"string"}},
+        "required":["productName"]
+      }
+    }
+  }'
+Expected: 200 with {"productName": "..."}
+
+===============================================================================
+6. MIGRATION TIMELINE
+===============================================================================
+
+PHASE 1 (Week 1): Setup
+- Install backend (done ✅)
+- Read this guide
+- Set GEMINI_API_KEY on backend server
+- Update frontend config to use backend URLs
+
+PHASE 2 (Week 2): Text Generation
+- Migrate generateLookTitle()
+- Migrate improviseSceneDescription()
+- Migrate generateLookNotes()
+- Migrate image analysis functions
+
+PHASE 3 (Week 3): Image Generation
+- Migrate createLook()
+- Migrate editLook()
+- Migrate continueImageEditing()
+- Migrate Imagen generation
+
+PHASE 4 (Week 4): Structured Data & Testing
+- Migrate JSON generation functions
+- Migrate grounded search
+- Full QA testing
+- Remove frontend Gemini dependencies
+
+PHASE 5 (Week 5): Deployment
+- Deploy frontend changes
+- Monitor error rates
+- Celebrate! 🎉
+
+===============================================================================
+7. SUPPORT
+===============================================================================
+
+Issues:
+1. "Cannot import genai" in frontend
+   → Remove genai package, delete from imports
+   
+2. "401 Unauthorized"
+   → Check JWT token is being sent in Authorization header
+   → Token may be expired, refresh/re-login
+   
+3. "402 Payment Required"
+   → User has insufficient tokens
+   → Show UI to upgrade subscription or wait for token refresh
+   
+4. "503 Service Unavailable"
+   → Gemini API key not configured on backend
+   → Contact backend team to set GEMINI_API_KEY
+   
+5. "Network error"
+   → Check API_BASE URL is correct
+   → Verify ngrok tunnel is running (if using dev)
+   → Check firewall/CORS settings
+
+===============================================================================
+
+Ready to migrate? Let's go! 🚀
+
+Questions? Ask the backend team.
