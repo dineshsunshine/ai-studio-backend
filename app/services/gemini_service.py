@@ -98,19 +98,29 @@ class GeminiService:
             print(f"🚀 Calling Gemini generate_text with model: {model}")
             
             # Build generation config if needed
-            gen_config_kwargs = {}
+            gen_config = None
             if config and "maxOutputTokens" in config:
-                gen_config_kwargs["max_output_tokens"] = config["maxOutputTokens"]
+                gen_config = types.GenerateContentConfig(
+                    max_output_tokens=config["maxOutputTokens"]
+                )
             
-            gen_config = types.GenerateContentConfig(**gen_config_kwargs) if gen_config_kwargs else None
+            # Build contents with system instruction
+            contents_with_system = contents
+            if system_instruction:
+                # In new SDK, add system instruction to the message itself
+                if isinstance(contents, dict) and "parts" in contents:
+                    contents_with_system = {
+                        "parts": [
+                            {"text": f"{system_instruction}\n\n{contents['parts'][0].get('text', '')}" if i == 0 else content}
+                            for i, content in enumerate(contents.get("parts", []))
+                        ]
+                    }
             
             # Call Gemini API using new SDK
-            # Pass system_instruction directly to generate_content
             response = self.client.models.generate_content(
                 model=model,
-                contents=contents,
-                config=gen_config,
-                system_instruction=system_instruction
+                contents=contents_with_system,
+                config=gen_config
             )
             
             # Extract text from response
@@ -210,8 +220,7 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=actual_model,
                 contents=contents_to_send,
-                config=gen_config,
-                system_instruction=system_instruction
+                config=gen_config
             )
             
             # Extract image from response
@@ -325,8 +334,7 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=model,
                 contents=contents,
-                config=gen_config,
-                system_instruction=system_instruction
+                config=gen_config
             )
             
             # Parse JSON response
@@ -398,8 +406,7 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=model,
                 contents=contents,
-                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})],
-                system_instruction=system_instruction
+                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
             )
             
             # Extract text from response
