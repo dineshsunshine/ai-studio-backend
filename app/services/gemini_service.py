@@ -170,30 +170,24 @@ class GeminiService:
             actual_model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {actual_model} for image generation")
             
-            # Build request parameters
-            kwargs = {
-                "model": actual_model,
-                "contents": contents,
-            }
-            
-            if system_instruction:
-                kwargs["system_instruction"] = system_instruction
-            
-            # Add generation config
-            gen_config = {}
+            # Add generation config with aspect ratio and other settings
+            gen_config_dict = {}
             if config:
                 if "responseModalities" in config:
-                    gen_config["response_modalities"] = config["responseModalities"]
-                if "imageConfig" in config and "aspectRatio" in config["imageConfig"]:
-                    gen_config["aspect_ratio"] = config["imageConfig"]["aspectRatio"]
+                    gen_config_dict["response_modalities"] = config["responseModalities"]
+                if "imageConfig" in config:
+                    if "aspectRatio" in config["imageConfig"]:
+                        gen_config_dict["aspect_ratio"] = config["imageConfig"]["aspectRatio"]
+                        print(f"📐 Setting aspect ratio: {config['imageConfig']['aspectRatio']}")
             
-            if gen_config:
-                kwargs["generation_config"] = gen_config
+            # Create generation config
+            gen_config = genai.types.GenerationConfig(**gen_config_dict) if gen_config_dict else None
             
             # Call Gemini API
             model_obj = genai.GenerativeModel(
                 model_name=actual_model,
-                system_instruction=system_instruction
+                system_instruction=system_instruction,
+                generation_config=gen_config
             )
             
             # Build content for multi-turn if history is provided
@@ -257,8 +251,21 @@ class GeminiService:
             model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {model} for high-quality image generation")
             
-            # Build request
-            model_obj = genai.GenerativeModel(model_name=model)
+            # Build generation config with aspect ratio and other settings
+            gen_config_dict = {}
+            if config:
+                if "aspectRatio" in config:
+                    gen_config_dict["aspect_ratio"] = config["aspectRatio"]
+                    print(f"📐 Setting aspect ratio: {config['aspectRatio']}")
+                if "numberOfImages" in config:
+                    gen_config_dict["number_of_images"] = config["numberOfImages"]
+            
+            # Create model with generation config
+            gen_config = genai.types.GenerationConfig(**gen_config_dict) if gen_config_dict else None
+            model_obj = genai.GenerativeModel(
+                model_name=model,
+                generation_config=gen_config
+            )
             response = model_obj.generate_content(prompt)
             
             # Extract image and encode as base64
