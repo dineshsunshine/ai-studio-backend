@@ -113,32 +113,31 @@ class GeminiService:
             )
             
             # Extract text from response
-            print(f"📝 Response type: {type(response)}, dir: {[x for x in dir(response) if not x.startswith('_')][:10]}")
+            print(f"📝 Response type: {type(response)}")
             
-            # Try to get text from candidates
-            if hasattr(response, 'candidates') and response.candidates:
-                for candidate in response.candidates:
+            # New SDK structure: response.candidates[0].content.parts[0].text
+            try:
+                if response.candidates and len(response.candidates) > 0:
+                    candidate = response.candidates[0]
                     if hasattr(candidate, 'content') and candidate.content:
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    print(f"✅ Gemini text generation successful (from candidates)")
-                                    return part.text
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts and len(candidate.content.parts) > 0:
+                            part = candidate.content.parts[0]
+                            if hasattr(part, 'text') and part.text:
+                                print(f"✅ Gemini text generation successful")
+                                return part.text
+            except Exception as e:
+                print(f"⚠️  Exception accessing candidates: {e}")
             
-            # Try to get text from response.text (old SDK compatibility)
-            if hasattr(response, 'text') and response.text:
-                print(f"✅ Gemini text generation successful (from response.text)")
-                return response.text
+            # Fallback: Try old SDK pattern
+            try:
+                if hasattr(response, 'text') and response.text:
+                    print(f"✅ Gemini text generation successful (fallback)")
+                    return response.text
+            except Exception as e:
+                print(f"⚠️  Exception accessing response.text: {e}")
             
-            # Try to get text from parts
-            if hasattr(response, 'parts') and response.parts:
-                for part in response.parts:
-                    if hasattr(part, 'text') and part.text:
-                        print(f"✅ Gemini text generation successful (from parts)")
-                        return part.text
-            
-            # If we got here, response is empty
-            print(f"❌ Response object: {response}")
+            # Last resort: return string representation
+            print(f"❌ Could not extract text, response: {str(response)[:200]}")
             raise ValueError("Gemini API returned empty response")
         
         except HTTPException:
@@ -315,27 +314,25 @@ class GeminiService:
             # Parse JSON response
             response_text = None
             
-            # Try to get text from candidates
-            if hasattr(response, 'candidates') and response.candidates:
-                for candidate in response.candidates:
+            # New SDK structure: response.candidates[0].content.parts[0].text
+            try:
+                if response.candidates and len(response.candidates) > 0:
+                    candidate = response.candidates[0]
                     if hasattr(candidate, 'content') and candidate.content:
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    response_text = part.text
-                                    break
-                    if response_text:
-                        break
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts and len(candidate.content.parts) > 0:
+                            part = candidate.content.parts[0]
+                            if hasattr(part, 'text') and part.text:
+                                response_text = part.text
+            except Exception as e:
+                print(f"⚠️  Exception accessing candidates: {e}")
             
             # Fallback: Try old SDK pattern
             if not response_text:
-                if hasattr(response, 'text') and response.text:
-                    response_text = response.text
-                elif hasattr(response, 'parts') and response.parts:
-                    for part in response.parts:
-                        if hasattr(part, 'text') and part.text:
-                            response_text = part.text
-                            break
+                try:
+                    if hasattr(response, 'text') and response.text:
+                        response_text = response.text
+                except Exception as e:
+                    print(f"⚠️  Exception accessing response.text: {e}")
             
             if response_text:
                 try:
@@ -387,27 +384,26 @@ class GeminiService:
             )
             
             # Extract text from response
-            # Try to get text from candidates
-            if hasattr(response, 'candidates') and response.candidates:
-                for candidate in response.candidates:
+            # New SDK structure: response.candidates[0].content.parts[0].text
+            try:
+                if response.candidates and len(response.candidates) > 0:
+                    candidate = response.candidates[0]
                     if hasattr(candidate, 'content') and candidate.content:
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    print(f"✅ Gemini grounded search successful (from candidates)")
-                                    return part.text
+                        if hasattr(candidate.content, 'parts') and candidate.content.parts and len(candidate.content.parts) > 0:
+                            part = candidate.content.parts[0]
+                            if hasattr(part, 'text') and part.text:
+                                print(f"✅ Gemini grounded search successful")
+                                return part.text
+            except Exception as e:
+                print(f"⚠️  Exception accessing candidates: {e}")
             
             # Fallback: Try old SDK pattern
-            if hasattr(response, 'text') and response.text:
-                print(f"✅ Gemini grounded search successful")
-                return response.text
-            
-            # Try to get text from parts
-            if hasattr(response, 'parts') and response.parts:
-                for part in response.parts:
-                    if hasattr(part, 'text') and part.text:
-                        print(f"✅ Gemini grounded search successful (from parts)")
-                        return part.text
+            try:
+                if hasattr(response, 'text') and response.text:
+                    print(f"✅ Gemini grounded search successful (fallback)")
+                    return response.text
+            except Exception as e:
+                print(f"⚠️  Exception accessing response.text: {e}")
             
             raise ValueError("Gemini API returned empty response")
         
