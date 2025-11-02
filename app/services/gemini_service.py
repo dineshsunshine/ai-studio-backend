@@ -98,18 +98,19 @@ class GeminiService:
             print(f"🚀 Calling Gemini generate_text with model: {model}")
             
             # Build generation config if needed
-            gen_config = None
+            gen_config_kwargs = {}
             if config and "maxOutputTokens" in config:
-                gen_config = types.GenerateContentConfig(
-                    max_output_tokens=config["maxOutputTokens"]
-                )
+                gen_config_kwargs["max_output_tokens"] = config["maxOutputTokens"]
+            
+            gen_config = types.GenerateContentConfig(**gen_config_kwargs) if gen_config_kwargs else None
             
             # Call Gemini API using new SDK
-            # Note: system_instruction is passed to the model, not generate_content
+            # Pass system_instruction directly to generate_content
             response = self.client.models.generate_content(
                 model=model,
                 contents=contents,
-                config=gen_config
+                config=gen_config,
+                system_instruction=system_instruction
             )
             
             # Extract text from response
@@ -209,7 +210,8 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=actual_model,
                 contents=contents_to_send,
-                config=gen_config
+                config=gen_config,
+                system_instruction=system_instruction
             )
             
             # Extract image from response
@@ -323,7 +325,8 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=model,
                 contents=contents,
-                config=gen_config
+                config=gen_config,
+                system_instruction=system_instruction
             )
             
             # Parse JSON response
@@ -395,7 +398,8 @@ class GeminiService:
             response = self.client.models.generate_content(
                 model=model,
                 contents=contents,
-                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
+                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})],
+                system_instruction=system_instruction
             )
             
             # Extract text from response
