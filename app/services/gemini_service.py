@@ -170,24 +170,19 @@ class GeminiService:
             actual_model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {actual_model} for image generation")
             
-            # Build generation_config with image_config for aspect ratio
-            gen_config_kwargs = {}
+            # Build config dict for aspect ratio if provided
+            config_dict = {}
             if config:
                 if "responseModalities" in config:
-                    gen_config_kwargs["response_modalities"] = config["responseModalities"]
+                    config_dict["response_modalities"] = config["responseModalities"]
                 if "imageConfig" in config:
-                    # Create ImageConfig with aspect_ratio if provided
+                    # Build image_config with aspect_ratio if provided
                     image_config_dict = {}
                     if "aspectRatio" in config["imageConfig"]:
                         image_config_dict["aspect_ratio"] = config["imageConfig"]["aspectRatio"]
                         print(f"📐 Setting aspect ratio: {config['imageConfig']['aspectRatio']}")
                     if image_config_dict:
-                        gen_config_kwargs["image_config"] = genai.types.ImageConfig(**image_config_dict)
-            
-            # Create generation config if we have any settings
-            generation_config = None
-            if gen_config_kwargs:
-                generation_config = genai.types.GenerationConfig(**gen_config_kwargs)
+                        config_dict["image_config"] = image_config_dict
             
             # Call Gemini API
             model_obj = genai.GenerativeModel(
@@ -201,11 +196,15 @@ class GeminiService:
             else:
                 content_to_send = contents
             
-            # Generate content with generation_config
-            response = model_obj.generate_content(
-                content_to_send,
-                generation_config=generation_config
-            )
+            # Prepare generate_content kwargs
+            generate_content_kwargs = {"contents": content_to_send}
+            
+            # Add config if we have any settings
+            if config_dict:
+                generate_content_kwargs["config"] = config_dict
+            
+            # Generate content
+            response = model_obj.generate_content(**generate_content_kwargs)
             
             # Extract image from response
             if response.data and hasattr(response.data, 'mime_type'):
@@ -260,30 +259,30 @@ class GeminiService:
             model = "gemini-2.5-flash-image"
             print(f"📝 Using model: {model} for high-quality image generation")
             
-            # Build generation_config with image_config for aspect ratio
-            gen_config_kwargs = {}
+            # Build config dict for aspect ratio if provided
+            config_dict = {}
             if config:
                 if "aspectRatio" in config:
-                    gen_config_kwargs["image_config"] = genai.types.ImageConfig(
-                        aspect_ratio=config["aspectRatio"]
-                    )
+                    # Build image_config with aspect_ratio
+                    config_dict["image_config"] = {
+                        "aspect_ratio": config["aspectRatio"]
+                    }
                     print(f"📐 Setting aspect ratio: {config['aspectRatio']}")
                 if "numberOfImages" in config:
                     print(f"🖼️ Number of images requested: {config['numberOfImages']}")
             
-            # Create generation config if we have image_config settings
-            generation_config = None
-            if gen_config_kwargs:
-                generation_config = genai.types.GenerationConfig(**gen_config_kwargs)
-            
             # Create model
             model_obj = genai.GenerativeModel(model_name=model)
             
-            # Call generate_content with generation_config
-            response = model_obj.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
+            # Prepare generate_content kwargs
+            generate_content_kwargs = {"contents": prompt}
+            
+            # Add config if we have image settings
+            if config_dict:
+                generate_content_kwargs["config"] = config_dict
+            
+            # Call generate_content
+            response = model_obj.generate_content(**generate_content_kwargs)
             
             # Extract image and encode as base64
             if hasattr(response, 'parts') and response.parts:
