@@ -891,3 +891,154 @@ async def migrate_video_jobs_mock_mode(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result
         )
+
+@router.post("/user-settings-company-logo")
+async def migrate_user_settings_company_logo(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Add company_logo_url column to user_settings table.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": [],
+        "current_state": {}
+    }
+    
+    try:
+        # Check database type
+        db_url = str(engine.url)
+        is_postgres = 'postgresql' in db_url or 'postgres' in db_url
+        
+        # Check if column exists
+        exists = column_exists('user_settings', 'company_logo_url')
+        result["current_state"]["company_logo_url"] = exists
+        
+        if exists:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ company_logo_url column already exists! No migration needed."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        result["steps"].append("Adding company_logo_url column...")
+        
+        if is_postgres:
+            db.execute(text("ALTER TABLE user_settings ADD COLUMN company_logo_url VARCHAR(512) NULL"))
+        else:
+            db.execute(text("ALTER TABLE user_settings ADD COLUMN company_logo_url VARCHAR(512)"))
+        
+        db.commit()
+        result["steps"].append("✅ Added company_logo_url column")
+        
+        # Verify
+        if column_exists('user_settings', 'company_logo_url'):
+            result["status"] = "success"
+            result["message"] = "✅ Migration completed successfully! company_logo_url column added."
+        else:
+            result["status"] = "error"
+            result["message"] = "⚠️  Column added but verification failed"
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )
+
+
+@router.post("/look-videos")
+async def migrate_look_videos(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **ADMIN ONLY**: Create look_videos junction table for linking looks to videos.
+    
+    This endpoint is safe to call multiple times.
+    """
+    
+    # Only admins can run migrations
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can run migrations"
+        )
+    
+    result = {
+        "status": "checking",
+        "steps": [],
+        "errors": []
+    }
+    
+    try:
+        # Check if table already exists
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        has_look_videos = 'look_videos' in existing_tables
+        
+        result["current_state"] = {
+            "has_look_videos_table": has_look_videos
+        }
+        
+        # Check if migration already done
+        if has_look_videos:
+            result["status"] = "already_migrated"
+            result["message"] = "✅ Look videos junction table already exists."
+            return result
+        
+        # Perform migration
+        result["status"] = "migrating"
+        
+        # Import look and video models to ensure they are registered
+        from app.models.look import Look
+        from app.models.video import Video
+        
+        # Create the table
+        look_videos = Base.metadata.tables['look_videos']
+        look_videos.create(bind=engine, checkfirst=True)
+        result["steps"].append("✅ Created look_videos junction table")
+        
+        # Verify
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        has_look_videos_now = 'look_videos' in existing_tables
+        
+        if has_look_videos_now:
+            result["status"] = "success"
+            result["message"] = "✅ Look videos junction table created successfully!"
+            result["final_state"] = {
+                "look_videos_table": "✅ exists"
+            }
+        else:
+            result["status"] = "error"
+            result["message"] = "⚠️  Table creation failed or verification failed"
+        
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        result["status"] = "error"
+        result["error"] = str(e)
+        result["message"] = f"❌ Migration failed: {str(e)}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result
+        )

@@ -95,6 +95,7 @@ class SharedLinkResponse(BaseModel):
     title: str = Field(..., description="Link title")
     description: Optional[str] = Field(None, description="Link description")
     coverImageUrl: Optional[str] = Field(None, alias="coverImageUrl", description="Cover/masthead image URL")
+    companyLogoUrl: Optional[str] = Field(None, alias="companyLogoUrl", description="Company logo URL for branding")
     looks: List[LookResponse] = Field(..., description="List of looks to display")
     createdAt: str = Field(..., alias="createdAt", description="Creation timestamp")
     
@@ -107,6 +108,7 @@ class SharedLinkResponse(BaseModel):
                 "title": "Spring Collection 2025",
                 "description": "Elegant spring looks",
                 "coverImageUrl": "https://storage.com/cover.jpg",
+                "companyLogoUrl": "https://storage.com/logo.png",
                 "looks": [],
                 "createdAt": "2025-10-11T12:00:00Z"
             }

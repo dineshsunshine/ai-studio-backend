@@ -1,12 +1,13 @@
 """
 User Settings Endpoints
-Manages user-specific application settings (theme + tool settings)
+Manages user-specific application settings (theme + tool settings + branding)
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.auth import get_current_active_user
 from app.core.default_settings import get_current_defaults
+from app.core.storage import StorageService
 from app.models.user import User
 from app.models.user_settings import UserSettings
 from app.schemas.settings import UserSettingsData, UserSettingsResponse
@@ -34,7 +35,7 @@ def get_or_create_user_settings(user_id: str, db: Session) -> UserSettings:
         )
         db.add(user_settings)
         db.commit()
-        db.refresh(user_settings)
+
     
     return user_settings
 
@@ -48,12 +49,12 @@ async def get_user_settings(
     """
     Get user settings.
     
-    Returns the user's customized settings (theme + tool settings). 
+    Returns the user's customized settings (theme + tool settings + branding). 
     If no settings exist yet, automatically creates and returns default settings.
     Settings are merged with current defaults to ensure all new fields are present.
     
     Returns:
-        UserSettingsData: Complete user settings object with theme and toolSettings
+        UserSettingsData: Complete user settings object with theme, toolSettings, and companyLogoUrl
     """
     user_settings = get_or_create_user_settings(str(current_user.id), db)
     
@@ -86,6 +87,7 @@ async def get_user_settings(
     # Return settings object with merged values
     return UserSettingsData(
         theme=user_settings.theme,
+        companyLogoUrl=user_settings.company_logo_url,
         toolSettings=merged_tool_settings
     )
 
@@ -100,11 +102,11 @@ async def update_user_settings(
     """
     Update user settings.
     
-    Replaces the user's entire settings (theme + tool settings) with the provided data.
+    Replaces the user's entire settings (theme + tool settings + branding) with the provided data.
     The frontend should send the complete settings object.
     
     Body:
-        UserSettingsData: Complete settings object with theme and toolSettings
+        UserSettingsData: Complete settings object with theme, toolSettings, and companyLogoUrl
     
     Returns:
         UserSettingsData: The updated settings object
@@ -115,6 +117,7 @@ async def update_user_settings(
     # Update theme and tool settings
     user_settings.theme = settings.theme
     user_settings.tool_settings = settings.toolSettings.model_dump()
+    user_settings.company_logo_url = settings.companyLogoUrl
     
     db.commit()
     db.refresh(user_settings)
@@ -122,6 +125,7 @@ async def update_user_settings(
     # Return the updated settings
     return UserSettingsData(
         theme=user_settings.theme,
+        companyLogoUrl=user_settings.company_logo_url,
         toolSettings=user_settings.tool_settings
     )
 
@@ -131,31 +135,19 @@ async def reset_user_settings(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Reset user settings to defaults.
     
-    Overwrites the user's settings with the application's default values
-    (default theme and default tool settings).
-    
-    Returns:
-        UserSettingsData: The default settings object
-    """
-    # Get or create user settings
     user_settings = get_or_create_user_settings(str(current_user.id), db)
-    
-    # Get current admin-configurable defaults from database
     current_defaults = get_current_defaults(db)
     
-    # Reset to current defaults
     user_settings.theme = current_defaults["theme"]
     user_settings.tool_settings = current_defaults["toolSettings"]
     
     db.commit()
     db.refresh(user_settings)
     
-    # Return the default settings
     return UserSettingsData(
         theme=user_settings.theme,
+        companyLogoUrl=user_settings.company_logo_url,
         toolSettings=user_settings.tool_settings
     )
 
@@ -171,13 +163,121 @@ async def get_user_settings_info(
     Returns the user's settings along with metadata like last updated time.
     
     Returns:
-        UserSettingsResponse: Settings with metadata (theme, toolSettings, updatedAt)
+        UserSettingsResponse: Settings with metadata (theme, toolSettings, companyLogoUrl, updatedAt)
     """
     user_settings = get_or_create_user_settings(str(current_user.id), db)
     
     return UserSettingsResponse(
         theme=user_settings.theme,
+        companyLogoUrl=user_settings.company_logo_url,
         toolSettings=user_settings.tool_settings,
         updatedAt=user_settings.updated_at.isoformat()
     )
+
+
+@router.put("/logo", response_model=dict)
+async def upload_company_logo(
+    logo_file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload or update company logo.
+    
+    Uploads a company logo image and stores the URL in user settings.
+    The logo will be displayed on sharable links for branding.
+    
+    Args:
+        logo_file: Image file (PNG, JPG, WebP)
+    
+    Returns:
+        {
+            "companyLogoUrl": "https://...",
+            "message": "Logo uploaded successfully"
+        }
+    """
+    # Get or create user settings
+    user_settings = get_or_create_user_settings(str(current_user.id), db)
+    
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+    if logo_file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
+        )
+    
+    # Delete old logo if exists
+    if user_settings.company_logo_url:
+        try:
+            storage = StorageService()
+            # Extract public_id from URL if it's a Cloudinary URL
+            if "cloudinary" in user_settings.company_logo_url:
+                # Cloudinary URL format: .../ai_studio/logos/{public_id}
+                parts = user_settings.company_logo_url.split("/")
+                if len(parts) > 0:
+                    public_id = f"ai_studio/logos/{parts[-1].split('.')[0]}"
+                    storage.delete_file(public_id)
+        except Exception as e:
+            print(f"Warning: Could not delete old logo: {str(e)}")
+    
+    # Upload new logo
+    storage = StorageService()
+    logo_url = storage.upload_file(
+        logo_file.file,
+        f"logo_{current_user.id}",
+        logo_file.content_type,
+        folder="logos"
+    )
+    
+    # Update user settings
+    user_settings.company_logo_url = logo_url
+    db.commit()
+    db.refresh(user_settings)
+    
+    return {
+        "companyLogoUrl": logo_url,
+        "message": "Logo uploaded successfully"
+    }
+
+
+@router.delete("/logo", response_model=dict)
+async def delete_company_logo(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete company logo.
+    
+    Removes the company logo from user settings.
+    
+    Returns:
+        {
+            "message": "Logo deleted successfully",
+            "companyLogoUrl": null
+        }
+    """
+    user_settings = get_or_create_user_settings(str(current_user.id), db)
+    
+    # Delete from storage
+    if user_settings.company_logo_url:
+        try:
+            storage = StorageService()
+            if "cloudinary" in user_settings.company_logo_url:
+                parts = user_settings.company_logo_url.split("/")
+                if len(parts) > 0:
+                    public_id = f"ai_studio/logos/{parts[-1].split('.')[0]}"
+                    storage.delete_file(public_id)
+        except Exception as e:
+            print(f"Warning: Could not delete logo from storage: {str(e)}")
+    
+    # Update user settings
+    user_settings.company_logo_url = None
+    db.commit()
+    db.refresh(user_settings)
+    
+    return {
+        "message": "Logo deleted successfully",
+        "companyLogoUrl": None
+    }
 

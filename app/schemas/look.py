@@ -54,6 +54,29 @@ class SharedUserInfo(BaseModel):
         from_attributes = True
 
 
+
+
+class VideoInLook(BaseModel):
+    """Schema for video associated with a look"""
+    id: str = Field(..., description="Video job ID")
+    status: str = Field(..., description="Video status: PENDING, RUNNING, SUCCEEDED, FAILED")
+    cloudinary_url: Optional[str] = Field(None, alias="cloudinaryUrl", description="URL to the generated video (only if SUCCEEDED)")
+    is_default: bool = Field(False, alias="isDefault", description="Whether this video is set as default for the look")
+    created_at: str = Field(..., alias="createdAt", description="When the video was created")
+    progress_percentage: Optional[int] = Field(None, alias="progressPercentage", description="Progress if still processing (0-100)")
+    
+    @field_serializer('created_at')
+    def serialize_datetime(self, value):
+        """Convert datetime to ISO string"""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+    
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+        by_alias = True
+
 class LookResponse(LookBase):
     """Schema for look in API responses"""
     id: str = Field(..., description="Unique identifier (UUID)")
@@ -61,6 +84,7 @@ class LookResponse(LookBase):
     products: List[ProductResponse] = Field(..., description="List of products in this look")
     visibility: LookVisibility = Field(..., description="Visibility setting: private, shared, or public")
     shared_with: List[SharedUserInfo] = Field(default=[], alias="sharedWith", description="Users this look is shared with")
+    videos: List['VideoInLook'] = Field(default=[], description="Videos created from this look (backward compatible: empty list if none)")
     created_at: str = Field(..., alias="createdAt", description="Creation timestamp")
     updated_at: str = Field(..., alias="updatedAt", description="Last update timestamp")
     

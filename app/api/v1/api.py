@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, admin, admin_defaults, settings, models, looks, links, bootstrap, migrate, subscription, admin_subscription, video_jobs
+from app.api.v1.endpoints import health, auth, admin, admin_defaults, settings, models, looks, links, bootstrap, migrate, subscription, admin_subscription, video_jobs, look_videos
 
 api_router = APIRouter()
 
@@ -17,5 +17,6 @@ api_router.include_router(links.router, prefix="/links", tags=["links"])
 api_router.include_router(video_jobs.router, prefix="/video-jobs", tags=["video-jobs"])
 # IMPORTANT: The video-jobs endpoint with trailing slash is automatically created by FastAPI
 # To avoid 307 redirects on POST, access it at: POST /api/v1/video-jobs/ (with trailing slash)
+api_router.include_router(look_videos.router)  # Includes routers with /api/v1/looks/{look_id}/videos prefix
 api_router.include_router(migrate.router, prefix="/migrate", tags=["migration"])
 

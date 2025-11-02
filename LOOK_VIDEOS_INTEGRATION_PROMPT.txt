@@ -1,0 +1,205 @@
+# Look Videos Integration - API Guide
+
+## Overview
+Enhancement to link generated videos with looks and set one as default.
+
+**Existing Features (Unchanged):**
+- Users create looks with products
+- Users generate videos independently via Video Generation API
+- Both work standalone
+
+**New Capability:**
+- Associate videos with specific looks
+- Set one video as default for a look
+- Manage video associations
+
+## Important Notes
+
+✅ Videos continue to generate independently - no changes to video generation flow
+✅ This is purely an association/linking feature on top of existing video system
+✅ Looks without videos work perfectly (backward compatible)
+✅ Only look owner can manage video associations for their looks
+
+## API Endpoints
+
+### 1. Create/Link Video to Look
+```
+POST /api/v1/looks/{look_id}/videos
+Content-Type: multipart/form-data
+Authorization: Bearer <JWT_TOKEN>
+
+Body (same params as Video Generation API):
+- prompt: Optional text prompt
+- model: Video model (e.g., 'veo-3.1-generate-preview')
+- resolution: '720p' or '1080p'
+- aspectRatio: '16:9' or '9:16'
+- durationSeconds: 4 or 8
+- generateAudio: Optional boolean (default: false)
+
+Response: 202 Accepted
+{
+  "id": "video-id-uuid",
+  "status": "PENDING",
+  "cloudinaryUrl": null,
+  "isDefault": false,
+  "createdAt": "2025-11-02T...",
+  "progressPercentage": 0
+}
+```
+
+### 2. List Videos for a Look
+```
+GET /api/v1/looks/{look_id}/videos
+Authorization: Bearer <JWT_TOKEN>
+
+Response: 200 OK
+[
+  {
+    "id": "video-id-1",
+    "status": "SUCCEEDED",
+    "cloudinaryUrl": "https://res.cloudinary.com/...",
+    "isDefault": true,
+    "createdAt": "2025-11-02T...",
+    "progressPercentage": 100
+  },
+  {
+    "id": "video-id-2",
+    "status": "RUNNING",
+    "cloudinaryUrl": null,
+    "isDefault": false,
+    "createdAt": "2025-11-01T...",
+    "progressPercentage": 45
+  }
+]
+```
+
+### 3. Set Video as Default
+```
+PATCH /api/v1/looks/{look_id}/videos/{video_id}/set-default
+Authorization: Bearer <JWT_TOKEN>
+
+Response: 204 No Content
+
+Important: Only one video per look can be default.
+Setting a new default unsets the previous one automatically.
+```
+
+### 4. Delete/Unlink Video from Look
+```
+DELETE /api/v1/looks/{look_id}/videos/{video_id}
+Authorization: Bearer <JWT_TOKEN>
+
+Response: 204 No Content
+
+Important: If the video is default, it's automatically unset first.
+Video is removed from storage (Cloudinary or local).
+```
+
+## Look Response Changes
+
+All look responses now include `videos` array (empty if no videos):
+
+```json
+{
+  "id": "look-id",
+  "title": "Stone Essence",
+  "generatedImageUrl": "https://...",
+  "products": [...],
+  "visibility": "private",
+  "sharedWith": [],
+  "videos": [
+    {
+      "id": "video-id-1",
+      "status": "SUCCEEDED",
+      "cloudinaryUrl": "https://res.cloudinary.com/...",
+      "isDefault": true,
+      "createdAt": "2025-11-02T...",
+      "progressPercentage": 100
+    }
+  ],
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+```
+
+## Key Implementation Points
+
+### 1. Permission Control
+- Only look owner can create/manage videos
+- 403 Forbidden for non-owners
+- Check user.id === look.userId before allowing operations
+
+### 2. Video Status Handling
+- PENDING: Video is being generated
+- RUNNING: Video generation in progress
+- SUCCEEDED: Video ready and cloudinaryUrl populated
+- FAILED: Video generation failed
+- Only use cloudinaryUrl when status === "SUCCEEDED"
+
+### 3. Default Video Logic
+- Default video should only be used if: `isDefault === true && status === "SUCCEEDED"`
+- If both conditions met, use `cloudinaryUrl`
+- Otherwise fallback to look `generatedImageUrl`
+
+### 4. Token Consumption
+- Creating a video from look consumes 50 tokens
+- Same as standalone video generation
+- Charge happens on job creation, not on completion
+
+### 5. Concurrent Limit
+- User can have max 3 concurrent video generation jobs
+- 429 Too Many Requests if limit exceeded
+- Check before creating new video
+
+## Database Migration
+
+Before using (required once):
+```
+POST /api/v1/migrate/look-videos
+Authorization: Bearer <ADMIN_TOKEN>
+
+Response: 
+- 200 OK with status: "already_migrated" (if table exists)
+- 200 OK with status: "success" (if table created)
+```
+
+Creates `look_videos` junction table. Safe to call multiple times.
+
+## Error Codes
+
+| Status | Error | What to do |
+|--------|-------|-----------|
+| 403 | "Only the look owner can..." | Verify user owns the look |
+| 404 | "Look not found" | Verify look_id is correct |
+| 404 | "Video not associated..." | Video may have been deleted |
+| 402 | "Insufficient tokens" | User needs more tokens |
+| 429 | "Maximum 3 concurrent..." | Wait for existing jobs to complete |
+
+## Testing Endpoints
+
+Use Swagger UI: http://localhost:8000/docs
+
+Look for "Look Videos" section with these 4 endpoints:
+- POST /api/v1/looks/{look_id}/videos
+- GET /api/v1/looks/{look_id}/videos
+- PATCH /api/v1/looks/{look_id}/videos/{video_id}/set-default
+- DELETE /api/v1/looks/{look_id}/videos/{video_id}
+
+## Important: Standalone Videos Still Work
+
+Users can still generate videos without any look context:
+```
+POST /api/v1/video-jobs
+```
+
+This is completely independent. The new endpoints are just:
+- A convenience to link videos to looks
+- An optional feature, not required
+- Does not affect existing video generation workflow
+
+## Support
+
+- Check video job details: GET /api/v1/video-jobs/{videoId}
+- Check look details: GET /api/v1/looks/{lookId}
+- Review logs for detailed errors
+

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Table
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -76,7 +76,18 @@ class Look(Base):
     products = relationship("Product", back_populates="look", cascade="all, delete-orphan")
     links = relationship("Link", secondary="link_looks", back_populates="looks")
     shared_with = relationship("User", secondary=look_shares, backref="shared_looks")
+    videos = relationship("VideoJob", secondary="look_videos", backref="looks")
 
     def __repr__(self):
         return f"<Look(id='{self.id}', title='{self.title}', user_id='{self.user_id}', visibility='{self.visibility}')>"
 
+
+# Junction table for look-video relationships (many-to-many: Look <-> VideoJob)
+look_videos = Table(
+    'look_videos',
+    Base.metadata,
+    Column('look_id', String(36), ForeignKey('looks.id', ondelete='CASCADE'), primary_key=True),
+    Column('video_job_id', String(36), ForeignKey('video_jobs.id', ondelete='CASCADE'), primary_key=True),
+    Column('is_default', Boolean, default=False, nullable=False),
+    Column('created_at', DateTime, default=datetime.utcnow)
+)

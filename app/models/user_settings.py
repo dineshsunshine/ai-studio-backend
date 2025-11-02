@@ -22,6 +22,9 @@ class UserSettings(Base):
     # Theme setting: 'light' or 'dark'
     theme = Column(String(10), nullable=False, default='light')
     
+    # Company branding
+    company_logo_url = Column(String(512), nullable=True)  # URL to company logo
+    
     # Flexible JSON field to store tool settings
     # Structure: { lookCreator: {...}, copywriter: {...}, finishingStudio: {...}, modelManager: {...} }
     tool_settings = Column(JSON, nullable=False)

@@ -310,20 +310,21 @@
         }
 
         .company-logo-branding img {
-            max-width: clamp(40px, 8vw, 80px);
+            max-width: 50px;
             height: auto;
-            object-fit: contain;
             display: block;
-            opacity: 0.85;
+            opacity: 0.95;
             transition: opacity 0.3s ease;
-            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
-            aspect-ratio: auto;
         }
 
         .company-logo-branding img:hover {
             opacity: 1;
         }
 
+        /* Dark mode shadow for logo */
+        .company-logo-branding img {
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+        }
 
         .cover-title {
             font-size: clamp(36px, 8vw, 96px);

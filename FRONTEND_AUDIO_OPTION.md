@@ -45,3 +45,4 @@ The API response includes `generateAudio: true/false` in the job object, confirm
 - When enabled, Veo will generate appropriate audio/sound for the video based on the prompt and visual content
 - No additional configuration needed - just pass `generateAudio: 'true'` in the request
 
+

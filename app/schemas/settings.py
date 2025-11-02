@@ -109,11 +109,13 @@ class ToolSettingsComplete(BaseModel):
 class UserSettingsData(BaseModel):
     theme: Literal['light', 'dark'] = Field(..., description="UI theme preference")
     toolSettings: ToolSettingsComplete = Field(..., description="Tool-specific settings")
+    companyLogoUrl: Optional[str] = Field(None, description="Company logo URL for branding on sharable links")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "theme": "dark",
+                "companyLogoUrl": "https://cloudinary.com/...",
                 "toolSettings": {
                     "lookCreator": {
                         "systemPrompt": "You are an expert fashion AI...",
@@ -143,6 +145,7 @@ class UserSettingsResponse(UserSettingsData):
         json_schema_extra = {
             "example": {
                 "theme": "dark",
+                "companyLogoUrl": "https://cloudinary.com/...",
                 "toolSettings": {
                     "lookCreator": {"systemPrompt": "...", "sceneDescriptions": {"studio": "...", "beach": "...", "city": "...", "forest": "..."}},
                     "copywriter": {"systemPrompt": "..."},

@@ -421,7 +421,7 @@ async def get_shared_link(
     Path Parameters:
     - alphanumeric_link_id: The short alphanumeric ID (e.g., "AB12CD34")
     
-    Returns the link with all looks and products for client viewing.
+    Returns the link with all looks, products, and company branding for client viewing.
     
     This endpoint is designed to be called from the short URL:
     https://yourdomain.com/l/{alphanumeric_link_id}
@@ -433,6 +433,13 @@ async def get_shared_link(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Link not found or has been deleted"
         )
+    
+    # Get company logo from user settings
+    from app.models.user_settings import UserSettings
+    company_logo_url = None
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == link.user_id).first()
+    if user_settings:
+        company_logo_url = user_settings.company_logo_url
     
     # Get looks ordered by position
     from sqlalchemy import text
@@ -470,6 +477,7 @@ async def get_shared_link(
         title=link.title,
         description=link.description,
         coverImageUrl=link.cover_image_url,
+        companyLogoUrl=company_logo_url,
         looks=[
             LookResponse(
                 id=str(look.id),

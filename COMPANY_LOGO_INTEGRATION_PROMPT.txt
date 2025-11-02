@@ -1,0 +1,66 @@
+# Company Logo Branding - Frontend Integration Prompt
+
+## Overview
+Implement company logo upload in settings and display on all sharable lookbook links for professional branding.
+
+## Integration Synopsis
+
+### 1. Settings Panel - Add Logo Upload Section
+- File input accepting PNG, JPG, WebP, GIF
+- Upload button calling: `PUT /api/v1/settings/logo` (multipart/form-data with `logo_file`)
+- Display uploaded logo preview
+- Delete button calling: `DELETE /api/v1/settings/logo`
+- Handle loading/error states
+
+### 2. Sharable Link Page - Display Logo in Header
+- When fetching link data via `GET /api/v1/links/shared/{linkId}`, response includes `companyLogoUrl`
+- Display logo in header above title
+- Logo is optional (only show if present)
+- Works in both light/dark mode
+- Max width ~250px, auto height
+
+### 3. Data Flow
+```
+Settings Page:
+  User selects logo image → PUT /api/v1/settings/logo → Stored in DB → Response with URL
+
+Sharable Link:
+  GET /api/v1/links/shared/{linkId} → Returns companyLogoUrl → Display in header
+```
+
+## API Details
+
+**Upload Logo:**
+- Endpoint: `PUT /api/v1/settings/logo`
+- Request: FormData with `logo_file` (File)
+- Response: `{ companyLogoUrl: "https://...", message: "..." }`
+- Auth: Required
+
+**Delete Logo:**
+- Endpoint: `DELETE /api/v1/settings/logo`
+- Response: `{ companyLogoUrl: null, message: "..." }`
+- Auth: Required
+
+**Get Settings (includes logo):**
+- Endpoint: `GET /api/v1/settings`
+- Response includes: `companyLogoUrl` (can be null)
+
+## Key Implementation Points
+✅ Logo is optional (nullable) - only show if companyLogoUrl exists
+✅ Automatically fetched from user settings for each sharable link
+✅ Works on public sharable link page (no auth needed to view logo)
+✅ Display in both light/dark mode
+✅ Mobile responsive
+✅ Add shadow/drop-shadow effect for depth
+
+## Testing Checklist
+- [ ] Upload PNG/JPG logo from settings
+- [ ] Delete logo
+- [ ] Verify logo displays on sharable link
+- [ ] Test with no logo (graceful fallback)
+- [ ] Test light/dark mode on sharable link
+- [ ] Mobile preview
+
+## Reference Files
+- Complete integration guide: `backend/COMPANY_LOGO_INTEGRATION.md`
+- Code examples: JavaScript, React, HTML/CSS included in guide

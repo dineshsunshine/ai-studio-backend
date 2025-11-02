@@ -14,6 +14,9 @@ from app.models.product import Product as DBProduct
 from app.models.user import User, UserRole
 from app.schemas.look import LookCreate, LookUpdate, LookVisibilityUpdate, LookResponse, LookListResponse
 from app.core.storage import storage_service
+from app.models.look import look_videos
+from app.models.video_job import VideoJob
+from app.schemas.look import VideoInLook
 
 router = APIRouter()
 
@@ -37,6 +40,31 @@ def decode_base64_image(base64_string: str) -> bytes:
             detail=f"Invalid base64 image: {str(e)}"
         )
 
+
+
+
+def serialize_look_videos(look_id: str, db: Session) -> List['VideoInLook']:
+    """Serialize videos associated with a look"""
+    from sqlalchemy import and_
+    from app.schemas.look import VideoInLook
+    
+    videos_data = db.query(VideoJob, look_videos.c.is_default).join(
+        look_videos,
+        VideoJob.id == look_videos.c.video_job_id
+    ).filter(look_videos.c.look_id == look_id).all()
+    
+    result = []
+    for video, is_default in videos_data:
+        result.append(VideoInLook(
+            id=str(video.id),
+            status=video.status,
+            cloudinary_url=video.cloudinary_url,
+            is_default=is_default or False,
+            created_at=video.created_at.isoformat() if video.created_at else None,
+            progress_percentage=video.progress_percentage
+        ))
+    
+    return result
 
 @router.post("/", response_model=LookResponse, status_code=status.HTTP_201_CREATED)
 async def create_look(
