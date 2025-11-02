@@ -106,8 +106,8 @@ class GeminiService:
             
             # Call Gemini API using new SDK
             # Note: system_instruction is passed to the model, not generate_content
-            model_obj = self.client.models.get(model)
-            response = model_obj.generate_content(
+            response = self.client.models.generate_content(
+                model=model,
                 contents=contents,
                 config=gen_config
             )
@@ -170,8 +170,8 @@ class GeminiService:
                 contents_to_send = contents
             
             # Call Gemini API - get model first
-            model_obj = self.client.models.get(actual_model)
-            response = model_obj.generate_content(
+            response = self.client.models.generate_content(
+                model=actual_model,
                 contents=contents_to_send,
                 config=gen_config
             )
@@ -228,8 +228,8 @@ class GeminiService:
                     print(f"🖼️ Number of images requested: {config['numberOfImages']}")
             
             # Call generate_content
-            model_obj = self.client.models.get(model)
-            response = model_obj.generate_content(
+            response = self.client.models.generate_content(
+                model=model,
                 contents=prompt,
                 config=gen_config
             )
@@ -284,8 +284,8 @@ class GeminiService:
                 )
             
             # Call Gemini API
-            model_obj = self.client.models.get(model)
-            response = model_obj.generate_content(
+            response = self.client.models.generate_content(
+                model=model,
                 contents=contents,
                 config=gen_config
             )
@@ -334,8 +334,8 @@ class GeminiService:
                             tools.append(types.Tool.from_dict({"google_search": {}}))
             
             # Call Gemini API with tools
-            model_obj = self.client.models.get(model)
-            response = model_obj.generate_content(
+            response = self.client.models.generate_content(
+                model=model,
                 contents=contents,
                 tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
             )
