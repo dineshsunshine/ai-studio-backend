@@ -182,8 +182,14 @@ class GeminiService:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
-                            # The data is already base64
-                            image_base64 = part.inline_data.data
+                            # The data might be bytes or already base64 string
+                            data = part.inline_data.data
+                            if isinstance(data, bytes):
+                                # If it's raw bytes, encode to base64
+                                image_base64 = base64.b64encode(data).decode('utf-8')
+                            else:
+                                # If it's already a string (base64), use as-is
+                                image_base64 = str(data)
                             print(f"✅ Gemini image generation successful")
                             return image_base64
             
@@ -234,8 +240,14 @@ class GeminiService:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
-                            # The data is already base64
-                            image_base64 = part.inline_data.data
+                            # The data might be bytes or already base64 string
+                            data = part.inline_data.data
+                            if isinstance(data, bytes):
+                                # If it's raw bytes, encode to base64
+                                image_base64 = base64.b64encode(data).decode('utf-8')
+                            else:
+                                # If it's already a string (base64), use as-is
+                                image_base64 = str(data)
                             print(f"✅ Image generation successful with gemini-2.5-flash-image")
                             return image_base64
             
