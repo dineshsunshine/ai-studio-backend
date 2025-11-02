@@ -32,9 +32,10 @@ class GeminiService:
         if self._initialized:
             return
         
-        api_key = os.getenv("GEMINI_API_KEY")
+        # Use GOOGLE_API_KEY (same as GEMINI_API_KEY)
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("⚠️  GEMINI_API_KEY not set - Gemini endpoints will return errors until API key is configured")
+            print("⚠️  GOOGLE_API_KEY not set - Gemini endpoints will return errors until API key is configured")
             self.api_key_configured = False
             return
         
@@ -43,7 +44,7 @@ class GeminiService:
         self.max_retries = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
         self.api_key_configured = True
         GeminiService._initialized = True
-        print(f"✅ GeminiService initialized with timeout={self.request_timeout}s, max_retries={self.max_retries}")
+        print(f"✅ GeminiService initialized with GOOGLE_API_KEY - timeout={self.request_timeout}s, max_retries={self.max_retries}")
     
     def _handle_api_error(self, error: Exception) -> HTTPException:
         """Convert Gemini API errors to appropriate HTTP exceptions."""

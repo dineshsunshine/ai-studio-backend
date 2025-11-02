@@ -246,10 +246,13 @@ PHASE 3 (TESTING):
 ===============================================================================
 
 Environment Variables Required:
-GEMINI_API_KEY=<your-api-key>          # FastAPI will load from .env
+GOOGLE_API_KEY=<your-api-key>          # FastAPI will load from .env (same as Gemini API key)
 GEMINI_API_VERSION=v1beta              # Already in config
 GEMINI_REQUEST_TIMEOUT=60               # Seconds
 GEMINI_MAX_RETRIES=2                    # For transient errors
+
+NOTE: GEMINI_API_KEY and GOOGLE_API_KEY are the same value.
+The backend uses GOOGLE_API_KEY for all Gemini API calls.
 
 Existing Config File:
 backend/app/config.py (updated with new Gemini settings)

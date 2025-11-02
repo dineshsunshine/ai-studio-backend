@@ -432,7 +432,7 @@ Expected: 200 with {"productName": "..."}
 PHASE 1 (Week 1): Setup
 - Install backend (done ✅)
 - Read this guide
-- Set GEMINI_API_KEY on backend server
+- Verify GOOGLE_API_KEY is set on backend server (same API key for Gemini)
 - Update frontend config to use backend URLs
 
 PHASE 2 (Week 2): Text Generation
