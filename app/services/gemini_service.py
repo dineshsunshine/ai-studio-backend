@@ -207,7 +207,11 @@ class GeminiService:
             # Extract image from response
             if response.data and hasattr(response.data, 'mime_type'):
                 if "image" in response.data.mime_type:
-                    image_base64 = base64.b64encode(response.data).decode()
+                    # Ensure data is base64 encoded string
+                    if isinstance(response.data, bytes):
+                        image_base64 = base64.b64encode(response.data).decode('utf-8')
+                    else:
+                        image_base64 = str(response.data)
                     print(f"✅ Gemini image generation successful")
                     return image_base64
             
@@ -216,8 +220,16 @@ class GeminiService:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
+                            # The data might already be base64 or raw bytes
+                            data = part.inline_data.data
+                            if isinstance(data, bytes):
+                                # If it's raw bytes, encode to base64
+                                image_base64 = base64.b64encode(data).decode('utf-8')
+                            else:
+                                # If it's already a string (base64), use as-is
+                                image_base64 = str(data)
                             print(f"✅ Gemini image generation successful")
-                            return part.inline_data.data
+                            return image_base64
             
             raise ValueError("Gemini API did not return a valid image")
         
@@ -249,13 +261,21 @@ class GeminiService:
             model_obj = genai.GenerativeModel(model_name=model)
             response = model_obj.generate_content(prompt)
             
-            # Extract image
+            # Extract image and encode as base64
             if hasattr(response, 'parts') and response.parts:
                 for part in response.parts:
                     if hasattr(part, 'inline_data') and part.inline_data:
                         if "image" in part.inline_data.mime_type:
+                            # The data might already be base64 or raw bytes
+                            data = part.inline_data.data
+                            if isinstance(data, bytes):
+                                # If it's raw bytes, encode to base64
+                                image_base64 = base64.b64encode(data).decode('utf-8')
+                            else:
+                                # If it's already a string (base64), use as-is
+                                image_base64 = str(data)
                             print(f"✅ Image generation successful with gemini-2.5-flash-image")
-                            return part.inline_data.data
+                            return image_base64
             
             raise ValueError("Image generation did not return a valid image")
         
