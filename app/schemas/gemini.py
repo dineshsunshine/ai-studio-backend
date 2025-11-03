@@ -3,7 +3,7 @@ Pydantic schemas for Gemini API endpoints.
 These schemas validate and serialize requests/responses for all Gemini wrapper endpoints.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -46,7 +46,7 @@ class GenerateTextRequest(BaseModel):
     """Request for text generation endpoint."""
     model: str = Field(..., description="Model name (e.g., 'gemini-2.5-flash')")
     systemInstruction: Optional[str] = Field(None, alias="systemInstruction", description="Optional system prompt")
-    contents: Dict[str, Any] = Field(..., description="Content to process")
+    contents: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(..., description="Content to process (dict or list for conversation history)")
     config: Optional[Dict[str, Any]] = None
     
     class Config:
@@ -79,7 +79,7 @@ class GenerateImageRequest(BaseModel):
     """Request for image generation endpoint."""
     model: str = Field(..., description="Model name (e.g., 'gemini-2.5-flash-image')")
     systemInstruction: Optional[str] = Field(None, alias="systemInstruction")
-    contents: Dict[str, Any] = Field(..., description="Content with prompt and images")
+    contents: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(..., description="Content with prompt and images (can be dict or list for conversation history)")
     history: Optional[List[Dict[str, Any]]] = None
     config: Optional[Dict[str, Any]] = None
     
@@ -137,8 +137,9 @@ class GenerateJsonRequest(BaseModel):
     """Request for structured JSON generation."""
     model: str = Field(..., description="Model name")
     systemInstruction: Optional[str] = Field(None, alias="systemInstruction")
-    contents: Dict[str, Any] = Field(..., description="Content to process")
+    contents: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(..., description="Content to process (dict or list)")
     config: Optional[Dict[str, Any]] = None
+    taskType: Optional[str] = Field(None, description="Task identifier for response transformation: IMPROVE_SYSTEM_PROMPT, GENERATE_VIDEO_PROMPTS, ANALYZE_PRODUCT_IMAGE, GENERATE_PRODUCT_COPY")
     
     class Config:
         from_attributes = True
@@ -146,11 +147,17 @@ class GenerateJsonRequest(BaseModel):
 
 
 class GenerateJsonResponse(BaseModel):
-    """Response for JSON generation - can be any JSON structure."""
+    """Response for JSON generation - can be any JSON structure (dict, list, or primitive)."""
     
     class Config:
         from_attributes = True
         extra = "allow"  # Allow any additional fields
+    
+    def __init__(self, **data):
+        """Override to allow storing raw dict/list/any structure."""
+        # If a single argument is passed (the parsed JSON response),
+        # we need to store it directly
+        super().__init__(**data)
 
 
 # ============================================================================
@@ -161,7 +168,7 @@ class GroundedSearchRequest(BaseModel):
     """Request for Google Search grounded generation."""
     model: str = Field(..., description="Model name")
     systemInstruction: Optional[str] = Field(None, alias="systemInstruction")
-    contents: str = Field(..., description="Text content or brand/product info")
+    contents: Union[str, Dict[str, Any], List[Dict[str, Any]]] = Field(..., description="Text content or brand/product info")
     config: Optional[Dict[str, Any]] = None
     
     class Config:

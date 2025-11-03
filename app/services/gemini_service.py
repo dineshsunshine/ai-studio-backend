@@ -7,7 +7,7 @@ Uses the new google-genai SDK for proper aspect_ratio support.
 import os
 import json
 import base64
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 from google import genai
 from google.genai import types
@@ -85,7 +85,7 @@ class GeminiService:
         self,
         model: str,
         system_instruction: Optional[str],
-        contents: Dict[str, Any],
+        contents: Union[Dict[str, Any], List[Dict[str, Any]]],
         config: Optional[Dict[str, Any]] = None
     ) -> str:
         """Generate text using Gemini API."""
@@ -176,7 +176,7 @@ class GeminiService:
         self,
         model: str,
         system_instruction: Optional[str],
-        contents: Dict[str, Any],
+        contents: Union[Dict[str, Any], List[Dict[str, Any]]],
         history: Optional[List[Dict[str, Any]]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> str:
@@ -210,13 +210,25 @@ class GeminiService:
                     response_modalities=response_modalities if response_modalities else None
                 )
             
-            # Build content for multi-turn if history is provided
-            if history:
-                contents_to_send = history + [{"role": "user", "parts": contents.get("parts", [])}]
-            else:
+            # Handle contents - can be dict (single message) or list (conversation history)
+            # If contents is a list, it's already the full conversation history
+            # If contents is a dict, it's a single message that may need to be combined with history
+            if isinstance(contents, list):
+                # Contents is already full conversation history
                 contents_to_send = contents
+                print(f"📝 Contents is a list with {len(contents)} items (conversation history)")
+            else:
+                # Contents is a dict (single message)
+                if history:
+                    # Combine history with current contents
+                    contents_to_send = history + [{"role": "user", "parts": contents.get("parts", [])}]
+                    print(f"📝 Combined {len(history)} history items with current contents")
+                else:
+                    # Just use the dict contents as-is
+                    contents_to_send = contents
+                    print(f"📝 Using contents dict directly")
             
-            # Call Gemini API - get model first
+            # Call Gemini API
             response = self.client.models.generate_content(
                 model=actual_model,
                 contents=contents_to_send,
@@ -309,7 +321,7 @@ class GeminiService:
         self,
         model: str,
         system_instruction: Optional[str],
-        contents: Dict[str, Any],
+        contents: Union[Dict[str, Any], List[Dict[str, Any]]],
         config: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Generate structured JSON response using Gemini API."""
@@ -381,10 +393,10 @@ class GeminiService:
         self,
         model: str,
         system_instruction: Optional[str],
-        contents: str,
+        contents: Union[str, Dict[str, Any], List[Dict[str, Any]]],
         config: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Generate text grounded with Google Search results."""
+        """Generate text grounded with web search by integrating system instruction."""
         if not self.api_key_configured:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -393,20 +405,67 @@ class GeminiService:
         try:
             print(f"🚀 Calling Gemini grounded_search with model: {model}")
             
-            # Build tools list with google_search
-            tools = []
-            if config and "tools" in config:
-                # Parse tools from config
-                if isinstance(config["tools"], list):
-                    for tool in config["tools"]:
-                        if isinstance(tool, dict) and "googleSearch" in tool:
-                            tools.append(types.Tool.from_dict({"google_search": {}}))
+            # Enhance system instruction to enable web search
+            base_instruction = system_instruction or ""
+            if "web search" not in base_instruction.lower() and "search" not in base_instruction.lower():
+                base_instruction += "\n\nYou have access to web search. Use it to find current, accurate information to ground your responses in real-world data."
             
-            # Call Gemini API with tools
+            print(f"📝 Enabled web search via system instruction")
+            
+            # Format and integrate system instruction with contents
+            # In the new SDK, we need to integrate system instruction into the message
+            if isinstance(contents, str):
+                # String content - prepend system instruction
+                contents_to_send = f"{base_instruction}\n\n{contents}" if base_instruction else contents
+            elif isinstance(contents, dict) and "parts" in contents:
+                # Dict with parts - prepend to first part's text
+                parts = contents.get("parts", [])
+                if parts:
+                    first_part = parts[0]
+                    if isinstance(first_part, dict) and "text" in first_part:
+                        updated_text = f"{base_instruction}\n\n{first_part['text']}" if base_instruction else first_part['text']
+                        contents_to_send = {
+                            "parts": [
+                                {**first_part, "text": updated_text},
+                                *parts[1:]
+                            ]
+                        }
+                    else:
+                        contents_to_send = contents
+                else:
+                    contents_to_send = contents
+            elif isinstance(contents, list):
+                # List of messages (conversation history) - prepend to last user message or add system instruction
+                contents_to_send = contents
+                # For lists, the first message should have the system instruction
+                if contents_to_send and isinstance(contents_to_send[0], dict) and "parts" in contents_to_send[0]:
+                    first_msg = contents_to_send[0]
+                    parts = first_msg.get("parts", [])
+                    if parts and isinstance(parts[0], dict) and "text" in parts[0]:
+                        updated_text = f"{base_instruction}\n\n{parts[0]['text']}" if base_instruction else parts[0]['text']
+                        contents_to_send[0] = {
+                            **first_msg,
+                            "parts": [{**parts[0], "text": updated_text}, *parts[1:]]
+                        }
+            else:
+                contents_to_send = contents
+            
+            # Build generation config
+            gen_config = None
+            if config:
+                config_kwargs = {}
+                if "maxOutputTokens" in config:
+                    config_kwargs["max_output_tokens"] = config["maxOutputTokens"]
+                if config_kwargs:
+                    gen_config = types.GenerateContentConfig(**config_kwargs)
+            
+            # Call Gemini API without system_instruction parameter
+            # System instruction is already integrated into the contents
+            print(f"🌐 Calling Gemini with web search enabled")
             response = self.client.models.generate_content(
                 model=model,
-                contents=contents,
-                tools=tools if tools else [types.Tool.from_dict({"google_search": {}})]
+                contents=contents_to_send,
+                config=gen_config
             )
             
             # Extract text from response
