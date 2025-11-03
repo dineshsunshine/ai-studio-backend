@@ -7,6 +7,9 @@ from app.api.v1.api import api_router
 from app.core.database import engine, Base
 import os
 
+# Import Request for middleware
+from fastapi import Request
+
 # Import all models to ensure they're registered with SQLAlchemy
 from app.models import subscription  # noqa
 
@@ -29,6 +32,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add security headers middleware for OAuth and cross-origin requests
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to allow cross-origin OAuth popups and credentials"""
+    response = await call_next(request)
+    
+    # Allow cross-origin opener for OAuth popup windows
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+    
+    # Allow clipboard operations if needed
+    response.headers["Permissions-Policy"] = "clipboard-read=*, clipboard-write=*"
+    
+    # Ensure credentials are allowed in CORS requests
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 # Mount static files for serving images
 # __file__ is at /path/to/backend/app/main.py
