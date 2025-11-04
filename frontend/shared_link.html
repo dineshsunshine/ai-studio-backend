@@ -398,6 +398,22 @@
             animation: fadeIn 0.6s ease-out;
         }
 
+        /* Pinterest-style variable sizes */
+        .grid-card.size-tall {
+            grid-row: span 2;
+        }
+
+        .grid-card.size-wide {
+            grid-column: span 2;
+            aspect-ratio: 16/9;
+        }
+
+        .grid-card.size-large {
+            grid-column: span 2;
+            grid-row: span 2;
+            aspect-ratio: 1;
+        }
+
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -786,6 +802,17 @@
             .grid-wrapper {
                 grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 40vw, 240px), 1fr));
             }
+
+            .grid-card.size-large {
+                grid-column: span 1;
+                grid-row: span 1;
+                aspect-ratio: 3/4;
+            }
+
+            .grid-card.size-wide {
+                grid-column: span 1;
+                aspect-ratio: 3/4;
+            }
         }
 
         @media (max-width: 768px) {
@@ -818,6 +845,21 @@
             .grid-wrapper {
                 grid-template-columns: repeat(2, 1fr);
                 gap: clamp(8px, 2vw, 16px);
+            }
+
+            .grid-card.size-tall {
+                grid-row: span 1;
+            }
+
+            .grid-card.size-wide {
+                grid-column: span 1;
+                aspect-ratio: 3/4;
+            }
+
+            .grid-card.size-large {
+                grid-column: span 1;
+                grid-row: span 1;
+                aspect-ratio: 3/4;
             }
 
             .look-page {
@@ -1106,6 +1148,16 @@
                 const productCount = look.products ? look.products.length : 0;
                 const videoIndicator = look.videos && look.videos.length > 0 ? '🎥' : '';
                 const mediaType = look.defaultThumbnailType === 'video' ? 'video' : 'image';
+
+                // Pinterest-style random sizing: 70% normal, 20% tall, 10% wide
+                const sizeRand = Math.random();
+                if (sizeRand < 0.7) {
+                    // Normal size (3/4)
+                } else if (sizeRand < 0.9) {
+                    card.classList.add('size-tall');
+                } else {
+                    card.classList.add('size-wide');
+                }
 
                 card.innerHTML = `
                     <img src="${imageUrl}" alt="${escapeHtml(look.title)}" 
