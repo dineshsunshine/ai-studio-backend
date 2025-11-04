@@ -438,7 +438,6 @@
             padding: 40px 20px;
             padding-top: max(100px, calc(env(safe-area-inset-top) + 60px));
             padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 80px));
-            display: none;
             animation: fadeInUp 0.6s ease-out;
         }
 
@@ -1283,11 +1282,6 @@
             // Update button states
             document.getElementById('prev-btn').disabled = page <= 1;
             document.getElementById('next-btn').disabled = page >= linkData.looks.length;
-
-            // Hide/show look pages
-            document.querySelectorAll('.look-page').forEach((p, idx) => {
-                p.classList.toggle('show', idx + 1 === page);
-            });
         }
 
         function showError(message) {
