@@ -847,8 +847,10 @@
                 gap: clamp(8px, 2vw, 16px);
             }
 
+            /* On mobile, normalize all cards to uniform size */
             .grid-card.size-tall {
                 grid-row: span 1;
+                grid-column: span 1;
                 aspect-ratio: 3/4;
             }
 
@@ -1149,16 +1151,6 @@
                 const productCount = look.products ? look.products.length : 0;
                 const videoIndicator = look.videos && look.videos.length > 0 ? '🎥' : '';
                 const mediaType = look.defaultThumbnailType === 'video' ? 'video' : 'image';
-
-                // Pinterest-style random sizing: 70% normal, 20% tall, 10% wide
-                const sizeRand = Math.random();
-                if (sizeRand < 0.7) {
-                    // Normal size (3/4)
-                } else if (sizeRand < 0.9) {
-                    card.classList.add('size-tall');
-                } else {
-                    card.classList.add('size-wide');
-                }
 
                 // Show video or image based on default media type
                 let mediaHTML = '';
