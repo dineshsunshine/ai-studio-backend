@@ -848,7 +848,8 @@
             }
 
             .grid-card.size-tall {
-                grid-row: span 1;
+                grid-row: span 2;
+                aspect-ratio: 3/4;
             }
 
             .grid-card.size-wide {
@@ -857,7 +858,7 @@
             }
 
             .grid-card.size-large {
-                grid-column: span 1;
+                grid-column: span 2;
                 grid-row: span 1;
                 aspect-ratio: 3/4;
             }
@@ -1159,11 +1160,22 @@
                     card.classList.add('size-wide');
                 }
 
+                // Show video or image based on default media type
+                let mediaHTML = '';
+                if (mediaType === 'video' && look.defaultThumbnailUrl) {
+                    mediaHTML = `<video src="${look.defaultThumbnailUrl}" 
+                                 class="grid-card-image" 
+                                 autoplay muted loop playsinline
+                                 style="object-fit: cover; width: 100%; height: 100%;"></video>`;
+                } else {
+                    mediaHTML = `<img src="${imageUrl}" alt="${escapeHtml(look.title)}" 
+                             class="grid-card-image" 
+                             loading="lazy"
+                             onerror="this.style.opacity='0.3'">`;
+                }
+
                 card.innerHTML = `
-                    <img src="${imageUrl}" alt="${escapeHtml(look.title)}" 
-                         class="grid-card-image" 
-                         loading="lazy"
-                         onerror="this.style.opacity='0.3'">
+                    ${mediaHTML}
                     <div class="grid-card-overlay">
                         <div class="grid-card-title">${escapeHtml(look.title)}</div>
                         <div class="grid-card-meta">${productCount} Products ${videoIndicator}</div>
@@ -1233,8 +1245,12 @@
                         <div class="media-thumbnail ${media.isDefault ? 'active' : ''}" 
                              data-media-type="${media.type}"
                              data-media-url="${escapeAttribute(media.url)}"
-                             onclick="switchMedia(this, '${escapeAttribute(media.url)}', '${media.type}')">
-                            ${media.type === 'video' ? '▶' : '🖼'}
+                             onclick="switchMedia(this, '${escapeAttribute(media.url)}', '${media.type}')"
+                             style="position: relative;">
+                            ${media.type === 'video' 
+                                ? `<video src="${escapeAttribute(media.url)}" muted playsinline style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;"></video><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">▶</div>` 
+                                : `<img src="${escapeAttribute(media.url)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;">`
+                            }
                         </div>
                     `).join('')}
                 </div>
