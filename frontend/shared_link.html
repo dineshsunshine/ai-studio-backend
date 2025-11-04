@@ -68,7 +68,7 @@
         }
 
         body.light-mode .grid-description {
-            color: rgba(0, 0, 0, 0.6);
+            color: rgba(0, 0, 0, 0.7);
         }
 
         body.light-mode .look-page {
@@ -302,6 +302,16 @@
             transform: scale(0.96);
         }
 
+        body.light-mode .back-button {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .back-button:active {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
         /* Theme Toggle */
         .theme-toggle {
             position: fixed;
@@ -362,6 +372,10 @@
             font-weight: 300;
             line-height: 1.6;
             max-width: 600px;
+        }
+
+        body.light-mode .grid-description {
+            color: rgba(0, 0, 0, 0.7);
         }
 
         .grid-wrapper {
@@ -451,6 +465,10 @@
             letter-spacing: 0.3px;
         }
 
+        body.light-mode .grid-card-meta {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
         /* Look Page */
         .look-page {
             min-height: 100vh;
@@ -509,6 +527,10 @@
             margin-bottom: 16px;
         }
 
+        body.light-mode .look-number {
+            color: rgba(0, 0, 0, 0.4);
+        }
+
         .look-title {
             font-size: clamp(28px, 5vw, 56px);
             font-weight: 300;
@@ -525,6 +547,10 @@
             font-weight: 300;
         }
 
+        body.light-mode .look-notes {
+            color: rgba(0, 0, 0, 0.75);
+        }
+
         .products-section {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             padding-top: 24px;
@@ -537,6 +563,10 @@
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.4);
             margin-bottom: 16px;
+        }
+
+        body.light-mode .products-title {
+            color: rgba(0, 0, 0, 0.5);
         }
 
         .products-grid {
@@ -582,10 +612,18 @@
             margin-bottom: 4px;
         }
 
+        body.light-mode .product-name {
+            color: #1a1a1a;
+        }
+
         .product-details {
             font-size: 11px;
             color: rgba(255, 255, 255, 0.5);
             line-height: 1.4;
+        }
+
+        body.light-mode .product-details {
+            color: rgba(0, 0, 0, 0.65);
         }
 
         .product-cta {
@@ -674,6 +712,10 @@
             letter-spacing: 1px;
             min-width: 60px;
             text-align: center;
+        }
+
+        body.light-mode .page-indicator {
+            color: rgba(0, 0, 0, 0.7);
         }
 
         /* Media Thumbnails */
@@ -956,8 +998,8 @@
         <div class="header-left">
             <div id="company-logo-container"></div>
             <div class="header-title" id="header-title"></div>
+            <button class="back-button" id="back-button" style="display:none;">← Back</button>
         </div>
-        <button class="back-button" id="back-button" style="display:none;">← Back</button>
     </div>
 
     <!-- Main Container -->
